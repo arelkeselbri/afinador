@@ -1,0 +1,1269 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Afinador/Jogo de Escalas (YIN) - Mobile</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#111a33;
+      --panel2:#0f1730;
+      --text:#e8ecff;
+      --muted:#a7b0d6;
+      --good:#46d36a;
+      --bad:#ff5d5d;
+      --warn:#ffcc66;
+      --accent:#7aa2ff;
+      --border:rgba(255,255,255,0.12);
+      --shadow:0 10px 24px rgba(0,0,0,0.35);
+      --radius:14px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:
+        radial-gradient(900px 600px at 20% 0%, rgba(122,162,255,0.22), transparent 60%),
+        radial-gradient(700px 450px at 90% 10%, rgba(70,211,106,0.14), transparent 55%),
+        var(--bg);
+      color:var(--text);
+    }
+    .app{
+      max-width: 560px; /* mobile-first */
+      margin:0 auto;
+      padding: 14px 12px 28px;
+    }
+    header{
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    header h1{
+      margin:0;
+      font-size: 16px;
+      letter-spacing: .2px;
+    }
+    header .small{
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .panel{
+      background: rgba(0,0,0,0.18);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
+
+    .hidden{ display:none !important; }
+
+    /* Toolbar (botões + status) */
+    .toolbar{
+      display:flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .btnGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    button{
+      appearance:none;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      padding: 10px 10px;
+      border-radius: 12px;
+      font-size: 14px;
+      cursor:pointer;
+      min-height: 42px;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+    }
+    button:hover{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.18); }
+    button:active{ transform: translateY(1px); }
+    button.primary{
+      background: rgba(122,162,255,0.20);
+      border-color: rgba(122,162,255,0.38);
+    }
+    button.danger{
+      background: rgba(255,93,93,0.18);
+      border-color: rgba(255,93,93,0.34);
+    }
+    button[disabled]{ opacity:.55; cursor:not-allowed; }
+
+    .statusLine{
+      display:flex;
+      align-items:flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .pill{
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    /* Main readout */
+    .main{
+      margin-bottom: 10px;
+    }
+    .scaleSummary{
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+    .twoCols{
+      display:grid;
+      grid-template-columns: 1fr; /* mobile: 1 coluna */
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .block{
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.03);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .label{
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .3px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .value{
+      font-size: 28px;
+      font-weight: 750;
+      letter-spacing: .2px;
+      margin: 0 0 4px 0;
+    }
+    .sub{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .sub strong{ color: var(--text); font-weight: 650; }
+
+    .progressWrap{
+      width: 100%;
+      height: 14px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      margin: 8px 0 8px;
+    }
+    .progressBar{
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(122,162,255,0.85), rgba(70,211,106,0.85));
+      border-radius: 999px;
+      transition: width 0.08s linear;
+    }
+
+    .statsGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 10px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .statsGrid strong{ color: var(--text); font-weight: 700; }
+
+    #inTuneStatus.good{ color: var(--good); }
+    #inTuneStatus.bad{ color: var(--bad); }
+    #inTuneStatus.warn{ color: var(--warn); }
+
+    /* Settings */
+    .settings{
+      margin-bottom: 10px;
+    }
+    .settingsGrid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    label{
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    select, input{
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: var(--text);
+      padding: 10px 10px;
+      border-radius: 10px;
+      outline: none;
+      font-size: 14px;
+      min-height: 40px;
+    }
+    .hint{
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .scalePreview{
+      display:flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(255,255,255,0.10);
+    }
+    .chip{
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .chip.active{
+      border-color: rgba(122,162,255,0.55);
+      background: rgba(122,162,255,0.22);
+    }
+
+    /* History */
+    .history h2{
+      font-size: 14px;
+      margin: 0 0 10px 0;
+      color: var(--text);
+    }
+    .tableWrap{
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.16);
+    }
+    table{
+      width:100%;
+      min-width: 520px; /* para não esmagar demais no celular */
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    th, td{
+      padding: 10px 10px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align:left;
+      vertical-align: middle;
+    }
+    th{
+      color: var(--muted);
+      font-weight: 650;
+      background: rgba(255,255,255,0.04);
+      position: sticky;
+      top: 0;
+    }
+    tr:last-child td{ border-bottom:none; }
+    .resultGood{ color: var(--good); font-weight: 700; }
+    .resultBad{ color: var(--bad); font-weight: 700; }
+
+    /* Melhorias em telas maiores */
+    @media (min-width: 740px){
+      .app{ max-width: 980px; }
+      .btnGrid{ grid-template-columns: repeat(5, 1fr); }
+      .twoCols{ grid-template-columns: 1fr 1fr; }
+      .settingsGrid{ grid-template-columns: 1fr 1fr; }
+      table{ min-width: 100%; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header>
+      <h1>Afinador + treino de escalas (YIN)</h1>
+      <div class="small">
+        Interface simplificada para celular. Toque em <strong>Opções</strong> para configurar escala/tolerância/timeout.
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <section class="panel toolbar" aria-label="Controles">
+      <div class="btnGrid">
+        <button id="btnMic" class="primary">Microfone</button>
+        <button id="btnStart" class="primary" disabled>Iniciar</button>
+        <button id="btnStop" class="danger" disabled>Parar</button>
+        <button id="btnSettings">Opções</button>
+        <button id="btnHistory">Histórico</button>
+      </div>
+
+      <div class="statusLine" role="status" aria-live="polite">
+	      <span class="pill" id="enginePill">Aguardando mic</span>
+        <span id="statusText">Clique em <strong>Microfone</strong> para ativar.</span>
+      </div>
+    </section>
+
+    <!-- Settings (hidden by default) -->
+    <section class="panel settings hidden" id="settingsPanel" aria-label="Opções">
+      <div class="settingsGrid">
+        <label>
+          Escala (maior)
+          <select id="scaleSelect"></select>
+        </label>
+
+        <label>
+          Oitava do tônico
+          <select id="octaveSelect"></select>
+        </label>
+
+        <label>
+          Modo de notas
+          <select id="modeSelect">
+            <option value="sequential">Sequencial (1 → 8)</option>
+            <option value="random">Aleatório</option>
+          </select>
+        </label>
+
+        <label>
+          Timeout por tentativa (s)
+          <input id="timeoutInput" type="number" min="1" max="60" step="0.5" value="8" />
+        </label>
+
+        <label>
+          Tolerância (microtom ≈ cents)
+          <input id="toleranceInput" type="number" min="0.1" max="50" step="0.1" value="1" />
+        </label>
+
+        <label>
+          Sustentação exigida (s)
+          <input id="holdInput" type="number" min="0.1" max="3" step="0.05" value="0.5" />
+        </label>
+      </div>
+
+      <div class="scalePreview" id="scalePreview"></div>
+
+      <div class="hint">
+        Para o microfone funcionar, use <strong>HTTPS</strong> ou <code>localhost</code>.
+        A tolerância padrão (1 cent) é bem rígida; se quiser algo mais “tocável”, experimente 5–15 cents.
+      </div>
+    </section>
+
+    <!-- Main readouts -->
+    <section class="panel main" aria-label="Leituras">
+      <div class="scaleSummary" id="scaleSummary">Escala: —</div>
+
+      <div class="twoCols">
+        <div class="block">
+          <div class="label">Alvo</div>
+          <div class="value" id="targetNote">—</div>
+          <div class="sub">
+            <strong id="targetHz">—</strong> Hz • Grau <strong id="targetDegree">—</strong>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="label">Detectado</div>
+          <div class="value"><span id="detectedHz">—</span> Hz</div>
+          <div class="sub">
+            Erro: <strong id="errorCents">—</strong> cents (<strong id="errorPct">—</strong>)
+          </div>
+        </div>
+      </div>
+
+      <div class="progressWrap" aria-label="Progresso da sustentação">
+        <div class="progressBar" id="holdBar"></div>
+      </div>
+
+      <div class="sub">
+        Sustente: <strong id="holdTime">0.000</strong>/<strong id="holdNeeded">0.500</strong> s •
+        <strong id="inTuneStatus" class="">—</strong>
+      </div>
+
+      <div class="statsGrid">
+        <div>Acertos: <strong id="hits">0</strong></div>
+        <div>Erros: <strong id="misses">0</strong></div>
+        <div>Total: <strong id="totalTime">0.0</strong> s</div>
+        <div>Tentativa: <strong id="attemptTime">0.0</strong>/<strong id="attemptTimeout">8.0</strong> s</div>
+        <div>Confiança: <strong id="confidence">—</strong></div>
+        <div>RMS: <strong id="rms">—</strong></div>
+      </div>
+    </section>
+
+    <!-- History (hidden by default) -->
+    <section class="panel history hidden" id="historyPanel" aria-label="Histórico">
+      <h2>Últimas tentativas</h2>
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:70px;">#</th>
+              <th>Nota alvo</th>
+              <th>Resultado</th>
+              <th>Tempo (s)</th>
+              <th>Hz média detectada</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr>
+              <td colspan="5" style="color: var(--muted);">
+                Ainda não há tentativas. Ative o microfone e clique em <strong>Iniciar</strong>.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      // -----------------------------
+      // Escalas maiores (grafia tonal)
+      // -----------------------------
+      const MAJOR_SCALES = [
+        { id: "C",  label: "Dó maior (C)",  notes: ["C","D","E","F","G","A","B","C"] },
+        { id: "G",  label: "Sol maior (G)", notes: ["G","A","B","C","D","E","F#","G"] },
+        { id: "D",  label: "Ré maior (D)",  notes: ["D","E","F#","G","A","B","C#","D"] },
+        { id: "A",  label: "Lá maior (A)",  notes: ["A","B","C#","D","E","F#","G#","A"] },
+        { id: "E",  label: "Mi maior (E)",  notes: ["E","F#","G#","A","B","C#","D#","E"] },
+        { id: "B",  label: "Si maior (B)",  notes: ["B","C#","D#","E","F#","G#","A#","B"] },
+        { id: "F#", label: "Fá# maior (F#)", notes: ["F#","G#","A#","B","C#","D#","E#","F#"] },
+        { id: "C#", label: "Dó# maior (C#)", notes: ["C#","D#","E#","F#","G#","A#","B#","C#"] },
+
+        { id: "F",  label: "Fá maior (F)", notes: ["F","G","A","Bb","C","D","E","F"] },
+        { id: "Bb", label: "Si♭ maior (Bb)", notes: ["Bb","C","D","Eb","F","G","A","Bb"] },
+        { id: "Eb", label: "Mi♭ maior (Eb)", notes: ["Eb","F","G","Ab","Bb","C","D","Eb"] },
+        { id: "Ab", label: "Lá♭ maior (Ab)", notes: ["Ab","Bb","C","Db","Eb","F","G","Ab"] },
+        { id: "Db", label: "Ré♭ maior (Db)", notes: ["Db","Eb","F","Gb","Ab","Bb","C","Db"] },
+        { id: "Gb", label: "Sol♭ maior (Gb)", notes: ["Gb","Ab","Bb","Cb","Db","Eb","F","Gb"] },
+        { id: "Cb", label: "Dó♭ maior (Cb)", notes: ["Cb","Db","Eb","Fb","Gb","Ab","Bb","Cb"] },
+      ];
+      const MAJOR_INTERVALS = [0,2,4,5,7,9,11,12];
+
+      // -----------------------------
+      // Elementos
+      // -----------------------------
+      const el = (id) => document.getElementById(id);
+
+      const scaleSelect = el('scaleSelect');
+      const octaveSelect = el('octaveSelect');
+      const modeSelect = el('modeSelect');
+      const timeoutInput = el('timeoutInput');
+      const toleranceInput = el('toleranceInput');
+      const holdInput = el('holdInput');
+
+      const btnMic = el('btnMic');
+      const btnStart = el('btnStart');
+      const btnStop = el('btnStop');
+      const btnSettings = el('btnSettings');
+      const btnHistory = el('btnHistory');
+
+      const settingsPanel = el('settingsPanel');
+      const historyPanel = el('historyPanel');
+
+      const statusText = el('statusText');
+      const enginePill = el('enginePill');
+
+      const scaleSummaryEl = el('scaleSummary');
+
+      const targetNoteEl = el('targetNote');
+      const targetHzEl = el('targetHz');
+      const targetDegreeEl = el('targetDegree');
+      const scalePreviewEl = el('scalePreview');
+
+      const detectedHzEl = el('detectedHz');
+      const errorPctEl = el('errorPct');
+      const errorCentsEl = el('errorCents');
+      const confidenceEl = el('confidence');
+      const rmsEl = el('rms');
+
+      const holdBarEl = el('holdBar');
+      const holdTimeEl = el('holdTime');
+      const holdNeededEl = el('holdNeeded');
+      const inTuneStatusEl = el('inTuneStatus');
+
+      const hitsEl = el('hits');
+      const missesEl = el('misses');
+      const totalTimeEl = el('totalTime');
+      const attemptTimeEl = el('attemptTime');
+      const attemptTimeoutEl = el('attemptTimeout');
+
+      const historyBody = el('historyBody');
+
+      // -----------------------------
+      // Áudio / WebAudio
+      // -----------------------------
+      let audioCtx = null;
+      let mediaStream = null;
+      let sourceNode = null;
+
+      let hpFilter = null;
+      let lpFilter = null;
+      let analyser = null;
+      let muteGain = null;
+
+      let timeDomain = null;
+
+      let rafId = null;
+      let micActive = false;
+
+      // YIN buffers
+      let yinDiff = null;
+
+      // -----------------------------
+      // Estado do jogo
+      // -----------------------------
+      const HISTORY_LIMIT = 12;
+
+      let running = false;
+      let attemptActive = false;
+
+      let currentScale = null;
+      let scalePlan = null;
+
+      let noteIndex = 0;
+      let currentTarget = null;
+
+      let attemptStartMs = 0;
+      let attemptTimeoutHandle = null;
+
+      let lastAnalysisMs = 0;
+
+      let holdAccum = 0;
+
+      let hits = 0;
+      let misses = 0;
+      let totalAttemptSeconds = 0;
+
+      let attemptHzSum = 0;
+      let attemptHzCount = 0;
+
+      const history = [];
+
+      // Ajustes internos (móveis: baixa CPU)
+      const ANALYSIS_INTERVAL_MS = 50; // ~20 Hz (mais leve para celular)
+      const MIN_RMS = 0.008;
+      const MIN_CONFIDENCE = 0.60;
+      const YIN_THRESHOLD = 0.12;
+
+      // -----------------------------
+      // Utilitários musicais
+      // -----------------------------
+      const BASE_SEMITONES = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+
+      function noteNameToSemitone(noteName){
+        const m = /^([A-G])([#b]{0,4})$/.exec(noteName);
+        if(!m) throw new Error("Nota inválida: " + noteName);
+        const letter = m[1];
+        const acc = m[2] || "";
+        let semitone = BASE_SEMITONES[letter];
+        for (let i=0; i<acc.length; i++){
+          if (acc[i] === '#') semitone += 1;
+          else if (acc[i] === 'b') semitone -= 1;
+        }
+        semitone = ((semitone % 12) + 12) % 12;
+        return semitone;
+      }
+
+      function noteToMidi(noteName, octave){
+        const semitone = noteNameToSemitone(noteName);
+        return (octave + 1) * 12 + semitone;
+      }
+
+      function midiToOctave(midi){
+        return Math.floor(midi / 12) - 1;
+      }
+
+      function midiToFreq(midi){
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function centsError(detectedHz, targetHz){
+        return 1200 * Math.log2(detectedHz / targetHz);
+      }
+
+      function formatNumber(n, digits=2){
+        if (!Number.isFinite(n)) return "—";
+        return n.toFixed(digits);
+      }
+
+      function formatSigned(n, digits=2){
+        if (!Number.isFinite(n)) return "—";
+        const s = n >= 0 ? "+" : "";
+        return s + n.toFixed(digits);
+      }
+
+      function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+
+      // -----------------------------
+      // Escala atual
+      // -----------------------------
+      function buildScalePlan(scaleObj, tonicOctave){
+        const tonicName = scaleObj.notes[0];
+        const tonicMidi = noteToMidi(tonicName, tonicOctave);
+
+        const notes = MAJOR_INTERVALS.map((semi, idx) => {
+          const midi = tonicMidi + semi;
+          const hz = midiToFreq(midi);
+          const degree = idx + 1;
+          const name = scaleObj.notes[idx];
+          const octave = midiToOctave(midi);
+          const display = name + octave;
+          return { name, display, midi, hz, degree };
+        });
+
+        return { notes };
+      }
+
+      function renderScalePreview(activeDegree){
+        scalePreviewEl.innerHTML = "";
+        if (!scalePlan) return;
+        for (const n of scalePlan.notes){
+          const chip = document.createElement('div');
+          chip.className = 'chip' + (activeDegree === n.degree ? ' active' : '');
+          chip.textContent = n.display;
+          scalePreviewEl.appendChild(chip);
+        }
+      }
+
+      function updateScaleSummary(){
+        if (!currentScale){
+          scaleSummaryEl.textContent = "Escala: —";
+          return;
+        }
+        const oct = octaveSelect.value;
+        const mode = modeSelect.value === 'random' ? 'Aleatório' : 'Sequencial';
+        scaleSummaryEl.textContent = `Escala: ${currentScale.label} • Oitava do tônico: ${oct} • Modo: ${mode}`;
+      }
+
+      function applyCurrentSelectionToPlan(){
+        const scaleId = scaleSelect.value;
+        const octave = parseInt(octaveSelect.value, 10);
+
+        currentScale = MAJOR_SCALES.find(s => s.id === scaleId) || MAJOR_SCALES[2]; // D por padrão
+        scalePlan = buildScalePlan(currentScale, octave);
+
+        noteIndex = 0;
+        currentTarget = scalePlan.notes[0];
+
+        updateScaleSummary();
+        updateTargetUI(currentTarget);
+        renderScalePreview(currentTarget.degree);
+      }
+
+      // -----------------------------
+      // UI helpers
+      // -----------------------------
+      function setStatus(msg, pillText=null){
+        statusText.innerHTML = msg;
+        if (pillText !== null) enginePill.textContent = pillText;
+      }
+
+      function updateTargetUI(target){
+        if (!target){
+          targetNoteEl.textContent = "—";
+          targetHzEl.textContent = "—";
+          targetDegreeEl.textContent = "—";
+          return;
+        }
+        targetNoteEl.textContent = target.display;
+        targetHzEl.textContent = formatNumber(target.hz, 2);
+        targetDegreeEl.textContent = String(target.degree);
+
+        // Ajusta low-pass para ajudar com harmônicos
+        if (lpFilter && audioCtx){
+          const cutoff = clamp(target.hz * 2.5, 800, 6000);
+          lpFilter.frequency.setTargetAtTime(cutoff, audioCtx.currentTime, 0.01);
+        }
+      }
+
+      function updateAttemptUI(nowMs){
+        if (!attemptActive){
+          attemptTimeEl.textContent = "0.0";
+          return;
+        }
+        const elapsed = (nowMs - attemptStartMs) / 1000;
+        attemptTimeEl.textContent = formatNumber(elapsed, 2);
+      }
+
+      function updateStatsUI(){
+        hitsEl.textContent = String(hits);
+        missesEl.textContent = String(misses);
+        totalTimeEl.textContent = formatNumber(totalAttemptSeconds, 1);
+      }
+
+      function getTimeoutSeconds(){
+        const v = parseFloat(timeoutInput.value);
+        return Number.isFinite(v) ? clamp(v, 0.5, 60) : 8;
+      }
+
+      function getHoldSeconds(){
+        const v = parseFloat(holdInput.value);
+        return Number.isFinite(v) ? clamp(v, 0.1, 3) : 0.5;
+      }
+
+      function getToleranceCents(){
+        const v = parseFloat(toleranceInput.value);
+        return Number.isFinite(v) ? clamp(v, 0.1, 50) : 1;
+      }
+
+      function updateHoldUI(){
+        const needed = getHoldSeconds();
+        holdNeededEl.textContent = formatNumber(needed, 3);
+        holdTimeEl.textContent = formatNumber(holdAccum, 3);
+        const pct = clamp((holdAccum / needed) * 100, 0, 100);
+        holdBarEl.style.width = pct.toFixed(1) + "%";
+      }
+
+      function setInTuneStatus(state){
+        // good | bad | nosignal | none
+        inTuneStatusEl.className = "";
+        if (state === 'good'){
+          inTuneStatusEl.textContent = "Dentro da tolerância";
+          inTuneStatusEl.className = "good";
+        } else if (state === 'bad'){
+          inTuneStatusEl.textContent = "Fora da tolerância";
+          inTuneStatusEl.className = "bad";
+        } else if (state === 'nosignal'){
+          inTuneStatusEl.textContent = "Sem sinal";
+          inTuneStatusEl.className = "warn";
+        } else {
+          inTuneStatusEl.textContent = "—";
+        }
+      }
+
+      function renderHistory(){
+        historyBody.innerHTML = "";
+        if (history.length === 0){
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 5;
+          td.style.color = 'var(--muted)';
+          td.innerHTML = 'Ainda não há tentativas. Ative o microfone e clique em <strong>Iniciar</strong>.';
+          tr.appendChild(td);
+          historyBody.appendChild(tr);
+          return;
+        }
+
+        const rows = history.slice(-HISTORY_LIMIT).slice().reverse();
+        rows.forEach((r) => {
+          const tr = document.createElement('tr');
+
+          const c1 = document.createElement('td');
+          c1.textContent = String(r.index);
+          tr.appendChild(c1);
+
+          const c2 = document.createElement('td');
+          c2.textContent = r.targetDisplay + " (" + formatNumber(r.targetHz, 2) + " Hz)";
+          tr.appendChild(c2);
+
+          const c3 = document.createElement('td');
+          c3.textContent = r.success ? "Acerto" : (r.reason === "timeout" ? "Erro (timeout)" : "Erro");
+          c3.className = r.success ? "resultGood" : "resultBad";
+          tr.appendChild(c3);
+
+          const c4 = document.createElement('td');
+          c4.textContent = formatNumber(r.duration, 2);
+          tr.appendChild(c4);
+
+          const c5 = document.createElement('td');
+          c5.textContent = Number.isFinite(r.avgHz) ? formatNumber(r.avgHz, 2) : "—";
+          tr.appendChild(c5);
+
+          historyBody.appendChild(tr);
+        });
+      }
+
+      // -----------------------------
+      // YIN Pitch Detection
+      // -----------------------------
+      function computeRMS(buf){
+        let sum = 0;
+        for (let i=0; i<buf.length; i++){
+          const v = buf[i];
+          sum += v*v;
+        }
+        return Math.sqrt(sum / buf.length);
+      }
+
+      function parabolicInterpolation(arr, tau){
+        const x0 = (tau < 1) ? tau : tau - 1;
+        const x2 = (tau + 1 < arr.length) ? tau + 1 : tau;
+        if (x0 === tau || x2 === tau) return tau;
+
+        const s0 = arr[x0];
+        const s1 = arr[tau];
+        const s2 = arr[x2];
+
+        const denom = 2 * (2*s1 - s2 - s0);
+        if (denom === 0) return tau;
+        return tau + (s2 - s0) / denom;
+      }
+
+      function yinDetectPitch(buf, sampleRate){
+        const N = buf.length;
+        const halfN = N >> 1;
+
+        if (!yinDiff || yinDiff.length !== halfN){
+          yinDiff = new Float32Array(halfN);
+        } else {
+          yinDiff.fill(0);
+        }
+
+        // Difference function
+        for (let tau = 1; tau < halfN; tau++){
+          let sum = 0;
+          for (let i = 0; i < halfN; i++){
+            const delta = buf[i] - buf[i + tau];
+            sum += delta * delta;
+          }
+          yinDiff[tau] = sum;
+        }
+
+        // CMNDF
+        yinDiff[0] = 1;
+        let runningSum = 0;
+        for (let tau = 1; tau < halfN; tau++){
+          runningSum += yinDiff[tau];
+          yinDiff[tau] = (yinDiff[tau] * tau) / runningSum;
+        }
+
+        // Threshold
+        let tauEstimate = -1;
+        for (let tau = 2; tau < halfN; tau++){
+          if (yinDiff[tau] < YIN_THRESHOLD){
+            while (tau + 1 < halfN && yinDiff[tau + 1] < yinDiff[tau]){
+              tau++;
+            }
+            tauEstimate = tau;
+            break;
+          }
+        }
+
+        // Fallback mínimo
+        if (tauEstimate === -1){
+          let minTau = 2;
+          let minVal = yinDiff[2];
+          for (let tau = 3; tau < halfN; tau++){
+            if (yinDiff[tau] < minVal){
+              minVal = yinDiff[tau];
+              minTau = tau;
+            }
+          }
+          if (minVal < 0.20){
+            tauEstimate = minTau;
+          } else {
+            return null;
+          }
+        }
+
+        const betterTau = parabolicInterpolation(yinDiff, tauEstimate);
+        const freq = sampleRate / betterTau;
+        const confidence = 1 - yinDiff[tauEstimate];
+        return { freq, confidence };
+      }
+
+      // -----------------------------
+      // Tentativas
+      // -----------------------------
+      function pickNextTarget(){
+        if (!scalePlan || !scalePlan.notes || scalePlan.notes.length === 0) return null;
+        const mode = modeSelect.value;
+        if (mode === 'random'){
+          const idx = Math.floor(Math.random() * scalePlan.notes.length);
+          noteIndex = idx;
+          return scalePlan.notes[idx];
+        }
+        return scalePlan.notes[noteIndex % scalePlan.notes.length];
+      }
+
+      function advanceIndexSequential(){
+        noteIndex = (noteIndex + 1) % scalePlan.notes.length;
+      }
+
+      function startAttempt(){
+        if (!micActive){
+          setStatus("Microfone não está ativo. Toque em <strong>Microfone</strong>.", "Aguardando mic");
+          return;
+        }
+        if (!scalePlan) applyCurrentSelectionToPlan();
+
+        currentTarget = pickNextTarget();
+        updateTargetUI(currentTarget);
+        renderScalePreview(currentTarget.degree);
+
+        attemptActive = true;
+        holdAccum = 0;
+        attemptHzSum = 0;
+        attemptHzCount = 0;
+
+        const now = performance.now();
+        attemptStartMs = now;
+        updateAttemptUI(now);
+
+        const timeoutS = getTimeoutSeconds();
+        attemptTimeoutEl.textContent = formatNumber(timeoutS, 1);
+
+        if (attemptTimeoutHandle) clearTimeout(attemptTimeoutHandle);
+        attemptTimeoutHandle = setTimeout(() => {
+          endAttempt(false, "timeout");
+        }, timeoutS * 1000);
+
+        updateHoldUI();
+        setInTuneStatus('nosignal');
+
+        setStatus("Alvo: <strong>" + currentTarget.display + "</strong>. Sustente dentro da tolerância.", "YIN: ouvindo");
+      }
+
+      function endAttempt(success, reason){
+        if (!attemptActive) return;
+
+        attemptActive = false;
+        holdAccum = 0;
+        updateHoldUI();
+        holdBarEl.style.width = "0%";
+        setInTuneStatus('none');
+
+        if (attemptTimeoutHandle){
+          clearTimeout(attemptTimeoutHandle);
+          attemptTimeoutHandle = null;
+        }
+
+        const endMs = performance.now();
+        const duration = (endMs - attemptStartMs) / 1000;
+        totalAttemptSeconds += duration;
+
+        if (success) hits += 1;
+        else misses += 1;
+
+        updateStatsUI();
+
+        const avgHz = (attemptHzCount > 0) ? (attemptHzSum / attemptHzCount) : NaN;
+        const record = {
+          index: hits + misses,
+          targetDisplay: currentTarget ? currentTarget.display : "—",
+          targetHz: currentTarget ? currentTarget.hz : NaN,
+          success,
+          reason,
+          duration,
+          avgHz
+        };
+        history.push(record);
+        renderHistory();
+
+        const msg = success
+          ? "Acerto: <strong>" + record.targetDisplay + "</strong> sustentado."
+          : (reason === "timeout" ? "Erro: <strong>timeout</strong>." : "Erro.");
+
+        setStatus(msg, success ? "YIN: ok" : "YIN: continue");
+
+        if (running){
+          if (modeSelect.value === 'sequential') advanceIndexSequential();
+          setTimeout(() => { if (running) startAttempt(); }, 350);
+        }
+      }
+
+      function stopAll(){
+        running = false;
+        attemptActive = false;
+
+        if (attemptTimeoutHandle){
+          clearTimeout(attemptTimeoutHandle);
+          attemptTimeoutHandle = null;
+        }
+
+        holdAccum = 0;
+        updateHoldUI();
+        holdBarEl.style.width = "0%";
+        setInTuneStatus('none');
+        attemptTimeEl.textContent = "0.0";
+
+        btnStart.disabled = !micActive;
+        btnStop.disabled = true;
+
+        setStatus("Parado. Toque em <strong>Iniciar</strong> para recomeçar.", micActive ? "YIN: pronto" : "Aguardando mic");
+      }
+
+      // -----------------------------
+      // Loop de análise
+      // -----------------------------
+      let pitchEMA = null;
+      const EMA_ALPHA = 0.25;
+
+      function analysisLoop(nowMs){
+        rafId = requestAnimationFrame(analysisLoop);
+
+        if (!micActive || !analyser || !timeDomain || !audioCtx) return;
+        if (nowMs - lastAnalysisMs < ANALYSIS_INTERVAL_MS) return;
+
+        const dtMs = nowMs - lastAnalysisMs;
+        lastAnalysisMs = nowMs;
+
+        analyser.getFloatTimeDomainData(timeDomain);
+
+        const rms = computeRMS(timeDomain);
+        rmsEl.textContent = formatNumber(rms, 4);
+
+        let pitch = null;
+
+        if (rms >= MIN_RMS){
+          const res = yinDetectPitch(timeDomain, audioCtx.sampleRate);
+          if (res && Number.isFinite(res.freq) && Number.isFinite(res.confidence)){
+            if (res.confidence >= MIN_CONFIDENCE && res.freq >= 50 && res.freq <= 4000){
+              pitch = res;
+            }
+          }
+        }
+
+        if (!pitch){
+          pitchEMA = null;
+          detectedHzEl.textContent = "—";
+          errorPctEl.textContent = "—";
+          errorCentsEl.textContent = "—";
+          confidenceEl.textContent = "—";
+
+          if (attemptActive){
+            holdAccum = 0;
+            updateHoldUI();
+            setInTuneStatus('nosignal');
+          }
+          return;
+        }
+
+        confidenceEl.textContent = formatNumber(pitch.confidence, 2);
+
+        if (pitchEMA === null) pitchEMA = pitch.freq;
+        else pitchEMA = EMA_ALPHA * pitch.freq + (1 - EMA_ALPHA) * pitchEMA;
+
+        const smoothedHz = pitchEMA;
+        detectedHzEl.textContent = formatNumber(smoothedHz, 2);
+
+        if (currentTarget && Number.isFinite(currentTarget.hz)){
+          const pct = (smoothedHz - currentTarget.hz) / currentTarget.hz * 100;
+          const cents = centsError(smoothedHz, currentTarget.hz);
+
+          errorPctEl.textContent = formatSigned(pct, 3) + "%";
+          errorCentsEl.textContent = formatSigned(cents, 2);
+
+          if (attemptActive){
+            updateAttemptUI(nowMs);
+
+            attemptHzSum += smoothedHz;
+            attemptHzCount += 1;
+
+            const tol = getToleranceCents();
+            const needed = getHoldSeconds();
+            const inTol = Math.abs(cents) <= tol;
+
+            if (inTol){
+              holdAccum += dtMs / 1000;
+              setInTuneStatus('good');
+            } else {
+              holdAccum = 0;
+              setInTuneStatus('bad');
+            }
+
+            updateHoldUI();
+
+            if (holdAccum >= needed){
+              endAttempt(true, "hold");
+            }
+          }
+        }
+      }
+
+      // -----------------------------
+      // Microfone
+      // -----------------------------
+      async function activateMicrophone(){
+        if (micActive){
+          setStatus("Microfone já está ativo. Toque em <strong>Iniciar</strong>.", "YIN: pronto");
+          return;
+        }
+
+        try{
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass){
+            setStatus("Seu navegador não suporta WebAudio API.", "YIN: indisponível");
+            return;
+          }
+
+          audioCtx = new AudioContextClass();
+          await audioCtx.resume();
+
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            }
+          });
+
+          sourceNode = audioCtx.createMediaStreamSource(mediaStream);
+
+          hpFilter = audioCtx.createBiquadFilter();
+          hpFilter.type = "highpass";
+          hpFilter.frequency.value = 50;
+
+          lpFilter = audioCtx.createBiquadFilter();
+          lpFilter.type = "lowpass";
+          lpFilter.frequency.value = 6000;
+
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 2048;
+          analyser.smoothingTimeConstant = 0.0;
+
+          timeDomain = new Float32Array(analyser.fftSize);
+
+          muteGain = audioCtx.createGain();
+          muteGain.gain.value = 0.0;
+
+          sourceNode.connect(hpFilter);
+          hpFilter.connect(lpFilter);
+          lpFilter.connect(analyser);
+          analyser.connect(muteGain);
+          muteGain.connect(audioCtx.destination);
+
+          micActive = true;
+          btnStart.disabled = false;
+          btnStop.disabled = true;
+
+          applyCurrentSelectionToPlan();
+          setStatus("Microfone ativado. Toque em <strong>Iniciar</strong>.", "YIN: pronto");
+
+          lastAnalysisMs = performance.now();
+          if (!rafId) rafId = requestAnimationFrame(analysisLoop);
+
+        } catch (err){
+          console.error(err);
+          setStatus("Falha ao ativar microfone: " + String(err && err.message ? err.message : err), "YIN: erro");
+        }
+      }
+
+      // -----------------------------
+      // Eventos
+      // -----------------------------
+      function populateUI(){
+        for (const s of MAJOR_SCALES){
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.label;
+          scaleSelect.appendChild(opt);
+        }
+        scaleSelect.value = "D";
+
+        for (let o = 2; o <= 6; o++){
+          const opt = document.createElement('option');
+          opt.value = String(o);
+          opt.textContent = String(o);
+          octaveSelect.appendChild(opt);
+        }
+        octaveSelect.value = "4";
+
+        applyCurrentSelectionToPlan();
+        updateStatsUI();
+        renderHistory();
+
+        attemptTimeoutEl.textContent = formatNumber(getTimeoutSeconds(), 1);
+        holdNeededEl.textContent = formatNumber(getHoldSeconds(), 3);
+      }
+
+      function onSelectionChange(){
+        if (running || attemptActive) stopAll();
+        applyCurrentSelectionToPlan();
+      }
+
+      // Toggles
+      function togglePanel(panelEl, btnEl, openText, closedText){
+        const isHidden = panelEl.classList.contains('hidden');
+        if (isHidden){
+          panelEl.classList.remove('hidden');
+          btnEl.textContent = openText;
+        } else {
+          panelEl.classList.add('hidden');
+          btnEl.textContent = closedText;
+        }
+      }
+
+      btnSettings.addEventListener('click', () => {
+        togglePanel(settingsPanel, btnSettings, "Fechar", "Opções");
+      });
+
+      btnHistory.addEventListener('click', () => {
+        togglePanel(historyPanel, btnHistory, "Fechar", "Histórico");
+      });
+
+      btnMic.addEventListener('click', () => activateMicrophone());
+
+      btnStart.addEventListener('click', async () => {
+        if (!micActive){
+          setStatus("Ative o microfone primeiro.", "Aguardando mic");
+          return;
+        }
+        if (audioCtx && audioCtx.state === "suspended") await audioCtx.resume();
+
+        running = true;
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+
+        if (modeSelect.value === 'sequential') noteIndex = 0;
+
+        // opcional: fechar opções ao iniciar (mantém UI limpa)
+        settingsPanel.classList.add('hidden');
+        btnSettings.textContent = "Opções";
+
+        startAttempt();
+      });
+
+      btnStop.addEventListener('click', () => stopAll());
+
+      scaleSelect.addEventListener('change', onSelectionChange);
+      octaveSelect.addEventListener('change', onSelectionChange);
+      modeSelect.addEventListener('change', onSelectionChange);
+
+      timeoutInput.addEventListener('change', () => {
+        attemptTimeoutEl.textContent = formatNumber(getTimeoutSeconds(), 1);
+      });
+      holdInput.addEventListener('change', () => {
+        holdNeededEl.textContent = formatNumber(getHoldSeconds(), 3);
+      });
+
+      timeoutInput.addEventListener('blur', () => { timeoutInput.value = String(getTimeoutSeconds()); });
+      toleranceInput.addEventListener('blur', () => { toleranceInput.value = String(getToleranceCents()); });
+      holdInput.addEventListener('blur', () => { holdInput.value = String(getHoldSeconds()); });
+
+      window.addEventListener('beforeunload', () => {
+        try{
+          if (rafId) cancelAnimationFrame(rafId);
+          if (mediaStream){
+            for (const tr of mediaStream.getTracks()) tr.stop();
+          }
+          if (audioCtx) audioCtx.close();
+        } catch(e){}
+      });
+
+      // Init
+      populateUI();
+      setStatus("Clique em <strong>Microfone</strong> para ativar.", "Aguardando mic");
+      setInTuneStatus('none');
+      updateHoldUI();
+
+    })();
+  </script>
+</body>
+</html>
+
