@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>🎻 Violino e o Gigante Guloso!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    touch-action: none;
+    background: #87CEEB;
+    font-family: 'Arial Black', Arial, sans-serif;
+    user-select: none;
+  }
+  #gameCanvas {
+    display: block;
+    position: fixed;
+    top: 0; left: 0;
+    touch-action: none;
+  }
+
+  /* ── SIDE PANELS (landscape mobile) ── */
+  #ui-left {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 72px;
+    background: linear-gradient(to right, rgba(255,240,200,0.95), rgba(255,240,200,0.7));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    z-index: 100;
+    padding: 8px 4px;
+    border-right: 2px solid rgba(243,156,18,0.3);
+  }
+  #ui-right {
+    position: fixed;
+    right: 0; top: 0; bottom: 0;
+    width: 78px;
+    background: linear-gradient(to left, rgba(255,240,200,0.95), rgba(255,240,200,0.7));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 100;
+    padding: 8px 4px;
+    border-left: 2px solid rgba(243,156,18,0.3);
+  }
+
+  /* Note buttons — large touch targets */
+  .note-btn {
+    width: 62px; height: 62px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.4);
+    font-size: 22px; font-weight: 900;
+    color: #fff;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.08s;
+    text-shadow: 0 0 8px currentColor;
+    box-shadow: 0 0 14px currentColor, inset 0 0 8px rgba(0,0,0,0.25);
+    position: relative;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    line-height: 1;
+  }
+  .note-btn .btn-sub {
+    font-size: 9px; opacity: 0.85; font-weight: 700;
+    margin-top: 2px;
+  }
+  .note-btn:active { transform: scale(0.88); }
+  .note-btn.hit { transform: scale(1.18); box-shadow: 0 0 30px currentColor, 0 0 60px currentColor; }
+
+  #btnG { background: radial-gradient(circle, #c0392b, #7b241c); color: #ffaaaa; }
+  #btnD { background: radial-gradient(circle, #2980b9, #1a5276); color: #aad4ff; }
+  #btnA { background: radial-gradient(circle, #27ae60, #1a7a44); color: #aaffcc; }
+  #btnE { background: radial-gradient(circle, #d68910, #9a6109); color: #ffd580; }
+
+  /* Score */
+  #score-display {
+    color: #c0392b;
+    font-size: 13px; font-weight: 900;
+    text-shadow: 1px 1px 0 #f39c12;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  /* Mic panel (left side) */
+  #mic-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+  }
+  #micBtn {
+    padding: 5px 4px;
+    background: linear-gradient(135deg, #f9ca24, #f0932b);
+    border: 2px solid #e55039;
+    color: #fff;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 10px; font-weight: bold;
+    width: 100%;
+    touch-action: manipulation;
+    line-height: 1.2;
+  }
+  #micBtn:active { background: #e55039; }
+  #micToggle {
+    display: flex; align-items: center; gap: 3px;
+    color: #555; font-size: 9px; cursor: pointer;
+    touch-action: manipulation;
+  }
+  #micToggle input { width: 28px; height: 16px; accent-color: #e55039; }
+  #micStatus { font-size: 8px; color: #777; text-align: center; line-height: 1.2; }
+  #detectedNote {
+    font-size: 22px; font-weight: 900;
+    color: #e74c3c;
+    text-shadow: 2px 2px 0 #f39c12;
+    min-height: 28px; text-align: center;
+  }
+
+  /* Health bar — top center, slim for mobile */
+  #healthBar {
+    position: fixed; top: 4px;
+    left: 80px; right: 86px;
+    z-index: 100; pointer-events: none;
+  }
+  #healthBarLabel {
+    text-align: center; color: #c0392b; font-size: 10px; font-weight: bold;
+    text-shadow: 1px 1px 0 #f39c12;
+    margin-bottom: 2px;
+  }
+  #healthBarBg {
+    width: 100%; height: 12px;
+    background: rgba(255,255,255,0.6);
+    border: 2px solid #e74c3c;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  #healthBarFill {
+    height: 100%;
+    background: linear-gradient(90deg, #e74c3c, #f39c12, #f1c40f);
+    border-radius: 8px;
+    transition: width 0.3s;
+  }
+
+  /* Target note — top center below health bar */
+  #targetNote {
+    position: fixed; top: 24px;
+    left: 50%; transform: translateX(-50%);
+    z-index: 100; pointer-events: none;
+    text-align: center;
+    background: rgba(255,255,255,0.82);
+    border-radius: 12px;
+    padding: 2px 12px 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #targetNoteLabel { color: #888; font-size: 9px; display: none; }
+  #targetNoteName {
+    font-size: 34px; font-weight: 900;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.12);
+    line-height: 1;
+  }
+  #targetNotePt { font-size: 13px; color: #666; font-weight: bold; }
+
+  /* Instructions — hidden on small screens */
+  #instructions { display: none; }
+
+  /* Landscape lock hint */
+  #rotate-hint {
+    display: none;
+    position: fixed; inset: 0;
+    background: #4ec0f0;
+    z-index: 999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+    gap: 16px;
+  }
+  #rotate-hint span { font-size: 64px; }
+  @media (orientation: portrait) and (max-width: 900px) {
+    #rotate-hint { display: flex; }
+  }
+  @media (orientation: landscape) {
+    #rotate-hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<!-- Rotate hint for portrait mode -->
+<div id="rotate-hint">
+  <span>🔄</span>
+  <div>Vire o celular de lado<br>para jogar!</div>
+</div>
+
+<!-- TOP: health bar and target note -->
+<div id="healthBar">
+  <div id="healthBarLabel">🍔 FOME DO GIGANTE</div>
+  <div id="healthBarBg"><div id="healthBarFill" style="width:100%"></div></div>
+</div>
+
+<div id="targetNote">
+  <div id="targetNoteName">G</div>
+  <div id="targetNotePt">Sol</div>
+</div>
+
+<div id="instructions">🎻 Toque a nota certa!</div>
+
+<!-- LEFT PANEL: mic controls -->
+<div id="ui-left">
+  <div id="score-display">🍽️<br>0 pts</div>
+  <div id="mic-panel">
+    <button id="micBtn" onclick="requestMic()">🎤<br>Mic</button>
+    <label id="micToggle">
+      <input type="checkbox" id="micToggleCheck" onchange="toggleMic(this.checked)">
+      <span style="font-size:8px">Mic On</span>
+    </label>
+    <div id="micStatus"></div>
+    <div id="detectedNote"></div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL: note buttons -->
+<div id="ui-right">
+  <button class="note-btn" id="btnG" data-note="G" ontouchstart="playNote('G')" onclick="playNote('G')">
+    G<span class="btn-sub">Sol</span>
+  </button>
+  <button class="note-btn" id="btnD" data-note="D" ontouchstart="playNote('D')" onclick="playNote('D')">
+    D<span class="btn-sub">Ré</span>
+  </button>
+  <button class="note-btn" id="btnA" data-note="A" ontouchstart="playNote('A')" onclick="playNote('A')">
+    A<span class="btn-sub">Lá</span>
+  </button>
+  <button class="note-btn" id="btnE" data-note="E" ontouchstart="playNote('E')" onclick="playNote('E')">
+    E<span class="btn-sub">Mi</span>
+  </button>
+</div>
+
+<script>
+// =================== SETUP ===================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Prevent all touch scrolling/zooming on the page
+document.addEventListener('touchmove', e => e.preventDefault(), {passive: false});
+document.addEventListener('touchstart', e => { if(e.target === canvas) e.preventDefault(); }, {passive: false});
+
+const UI_LEFT  = 72;  // left panel width
+const UI_RIGHT = 78;  // right panel width
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.width  = window.innerWidth  + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+}
+resize();
+window.addEventListener('resize', () => { resize(); });
+window.addEventListener('orientationchange', () => { setTimeout(resize, 300); });
+
+// =================== GAME STATE ===================
+const NOTES = ['G','D','A','E'];
+const NOTE_NAMES_PT = {G:'Sol', D:'Ré', A:'Lá', E:'Mi'};
+const NOTE_COLORS = {G:'#ff4444', D:'#4488ff', A:'#44ff44', E:'#ffaa44'};
+// Violin open strings frequencies
+const NOTE_FREQS = {G:196, D:293.66, A:440, E:659.25};
+const FREQ_TOLERANCE = 0.15; // 15% tolerance
+
+let score = 0;
+let targetNote = NOTES[Math.floor(Math.random()*4)];
+let gameRunning = true;
+let screenShake = {x:0, y:0, duration:0};
+
+// Particles
+let particles = [];
+let explosions = [];
+let bombs = [];
+let lasers = [];
+let smokeTrails = [];
+
+// =================== GIANT SKINS ===================
+const MONSTER_SKINS = [
+  { name:'Azulão', primary:'#4a90d9', secondary:'#2c6fad', eye:'#fff700', glow:'#ffe', wings:false, armCount:2, mood:'happy' },
+  { name:'Verdinho', primary:'#27ae60', secondary:'#1e8449', eye:'#ff69b4', glow:'#f9a', wings:false, armCount:2, mood:'hungry' },
+  { name:'Rosinha', primary:'#e91e8c', secondary:'#c2185b', eye:'#fff', glow:'#fff', wings:true, armCount:2, mood:'happy' },
+  { name:'Laranjão', primary:'#e67e22', secondary:'#ca6f1e', eye:'#fff', glow:'#fff', wings:false, armCount:2, mood:'hungry' },
+  { name:'Lilás', primary:'#9b59b6', secondary:'#7d3c98', eye:'#f1c40f', glow:'#ff0', wings:true, armCount:2, mood:'happy' },
+  { name:'Amarelão', primary:'#f1c40f', secondary:'#d4ac0d', eye:'#e74c3c', glow:'#e74', wings:false, armCount:2, mood:'hungry' },
+  { name:'Vermelhão', primary:'#e74c3c', secondary:'#c0392b', eye:'#fff', glow:'#fff', wings:true, armCount:2, mood:'happy' },
+  { name:'Mintão', primary:'#1abc9c', secondary:'#17a589', eye:'#fff', glow:'#fff', wings:false, armCount:2, mood:'hungry' },
+];
+
+// =================== MONSTER ===================
+class Monster {
+  constructor(skinIndex) {
+    this.skin = MONSTER_SKINS[skinIndex % MONSTER_SKINS.length];
+    this.x = canvas.width - UI_RIGHT + 120;
+    this.y = canvas.height - 275;
+    this.speed = 1.2;
+    this.health = 3;
+    this.maxHealth = 3;
+    this.angerAnim = 0;
+    this.walkAnim = 0;
+    this.laserTimer = 0;
+    this.laserCooldown = 180 + Math.random() * 120;
+    this.armAngles = [];
+    const n = this.skin.armCount;
+    for (let i = 0; i < n; i++) this.armAngles.push(Math.random() * Math.PI * 2);
+    this.width = 130;
+    this.height = 160;
+    this.dead = false;
+    this.deathAnim = 0;
+    this.isCrying = false;
+    this.cryAnim = 0;
+    this.tears = [];
+  }
+
+  update() {
+    if (this.dead) { this.deathAnim += 0.05; return; }
+    if (this.isCrying) {
+      this.cryAnim += 0.08;
+      // Spawn tears
+      if (Math.random() < 0.35) {
+        for (let side of [-1, 1]) {
+          this.tears.push({
+            x: this.x + side * 20,
+            y: this.y - this.height/2 - 38,
+            vx: side * (0.3 + Math.random()*0.5),
+            vy: 1 + Math.random(),
+            size: 4 + Math.random()*4,
+            life: 1
+          });
+        }
+      }
+      this.tears.forEach(t => { t.x += t.vx; t.y += t.vy; t.vy += 0.12; t.life -= 0.025; });
+      this.tears = this.tears.filter(t => t.life > 0);
+      return;
+    }
+    this.x -= this.speed;
+    this.walkAnim += 0.08;
+    this.angerAnim += 0.12;
+    for (let i = 0; i < this.armAngles.length; i++) {
+      this.armAngles[i] += 0.03 * (i % 2 === 0 ? 1 : -1);
+    }
+    this.laserTimer++;
+    if (this.laserTimer >= this.laserCooldown) {
+      this.fireLaser();
+      this.laserTimer = 0;
+      this.laserCooldown = 120 + Math.random() * 180;
+    }
+  }
+
+  fireLaser() {
+    // Giant burps rainbow bubbles instead of lasers!
+    const mouthX = this.x;
+    const mouthY = this.y - this.height/2 - 40;
+    for (let i = 0; i < 8; i++) {
+      const angle = -Math.PI/2 + (Math.random()-0.5)*1.2;
+      const speed = 3 + Math.random()*4;
+      lasers.push({
+        x1: mouthX, y1: mouthY,
+        x2: mouthX + Math.cos(angle)*250, y2: mouthY + Math.sin(angle)*250,
+        life: 50, maxLife: 50,
+        color: `hsl(${Math.random()*360},100%,65%)`,
+        isBubble: true,
+        bx: mouthX, by: mouthY,
+        bvx: Math.cos(angle)*speed, bvy: Math.sin(angle)*speed - 1,
+        br: 8 + Math.random()*10
+      });
+    }
+    screenShake = {x:0, y:0, duration:8, intensity:4};
+  }
+
+  draw() {
+    ctx.save();
+    const s = this.skin;
+    const cx = this.x, cy = this.y;
+    const bodyW = this.width, bodyH = this.height;
+    const bob = Math.sin(this.walkAnim) * 6;
+    // Friendly bounce, not angry shake
+    const bounce = Math.abs(Math.sin(this.walkAnim)) * 4;
+
+    if (this.dead) {
+      ctx.globalAlpha = Math.max(0, 1 - this.deathAnim);
+      ctx.translate(cx, cy + this.deathAnim * 60);
+      ctx.rotate(Math.sin(this.deathAnim * 5) * 0.1);
+    } else {
+      ctx.translate(cx, cy + bob);
+    }
+
+    // Wings (butterfly style for fun giants)
+    if (s.wings) {
+      const wingFlap = Math.sin(this.walkAnim * 3) * 0.4;
+      for (let side of [-1,1]) {
+        ctx.save();
+        ctx.scale(side, 1);
+        ctx.rotate(-0.3 + wingFlap);
+        // Upper wing
+        ctx.fillStyle = s.primary + 'aa';
+        ctx.strokeStyle = s.secondary; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(bodyW/2, -bodyH/4);
+        ctx.bezierCurveTo(bodyW*1.5, -bodyH, bodyW*2, -bodyH/2, bodyW/2, bodyH/4);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        // Lower wing
+        ctx.fillStyle = s.secondary + '88';
+        ctx.beginPath();
+        ctx.moveTo(bodyW/2, bodyH/8);
+        ctx.bezierCurveTo(bodyW*1.3, bodyH/2, bodyW*1.1, bodyH*0.8, bodyW/2, bodyH/2);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // Shadow on ground
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath();
+    ctx.ellipse(0, bodyH/2 + 42, bodyW*0.6, 12, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Legs (chubby and cute)
+    const legSwing = Math.sin(this.walkAnim) * 0.25;
+    for (let side of [-1,1]) {
+      ctx.save();
+      ctx.translate(side * 28, bodyH/2 - 5);
+      ctx.rotate(side * legSwing);
+      ctx.fillStyle = s.primary;
+      ctx.strokeStyle = s.secondary; ctx.lineWidth = 3;
+      // Thigh
+      ctx.beginPath(); ctx.ellipse(0, 20, 16, 26, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      // Foot
+      ctx.fillStyle = s.secondary;
+      ctx.beginPath(); ctx.ellipse(side*6, 50, 20, 11, 0.2, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Body (round and chubby)
+    ctx.shadowColor = s.primary; ctx.shadowBlur = 20;
+    ctx.fillStyle = s.primary;
+    ctx.strokeStyle = s.secondary; ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, bodyW/2, bodyH/2, 0, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+
+    // Belly (lighter round spot)
+    ctx.fillStyle = s.secondary + '66';
+    ctx.strokeStyle = 'transparent';
+    ctx.beginPath();
+    ctx.ellipse(0, bodyH/5, bodyW/3.5, bodyH/3.5, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Arms (short and cute, only 2)
+    const armSwing = Math.sin(this.walkAnim) * 0.4;
+    for (let side of [-1,1]) {
+      ctx.save();
+      ctx.translate(side * bodyW/2, -bodyH/6);
+      ctx.rotate(side * (0.3 + armSwing * side));
+      ctx.fillStyle = s.primary;
+      ctx.strokeStyle = s.secondary; ctx.lineWidth = 3;
+      // Upper arm
+      ctx.beginPath(); ctx.ellipse(0, 18, 11, 22, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      // Hand (little round paw)
+      ctx.fillStyle = s.secondary;
+      ctx.beginPath(); ctx.ellipse(side*3, 40, 13, 11, 0.2, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      // Fingers (3 tiny bumps)
+      for (let f = -1; f <= 1; f++) {
+        ctx.fillStyle = s.secondary;
+        ctx.beginPath(); ctx.arc(side*3 + f*5, 48, 4, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Neck
+    ctx.fillStyle = s.primary;
+    ctx.strokeStyle = s.secondary; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(0, -bodyH/2 - 10, 20, 16, 0, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+
+    // HEAD (big round happy head)
+    const headY = -bodyH/2 - 55;
+    ctx.shadowColor = s.primary; ctx.shadowBlur = 18;
+    ctx.fillStyle = s.primary;
+    ctx.strokeStyle = s.secondary; ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(0, headY, 58, 52, 0, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Ears (round and cute)
+    for (let side of [-1,1]) {
+      ctx.fillStyle = s.primary;
+      ctx.strokeStyle = s.secondary; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(side*52, headY - 5, 14, 18, side*0.3, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = s.secondary + '88';
+      ctx.beginPath(); ctx.ellipse(side*52, headY - 3, 8, 11, side*0.3, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // Hair tufts (cute spiky)
+    ctx.fillStyle = s.secondary;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.ellipse(i * 12, headY - 44, 7, 12, i * 0.15, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // EYES — big friendly eyes
+    const eyePulse = (Math.sin(this.angerAnim * 1.5) + 1) / 2;
+    for (let side of [-1,1]) {
+      const ex = side * 20, ey = headY - 10;
+      // White
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(ex, ey, 14, 16, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      // Iris
+      ctx.fillStyle = s.eye === '#fff' ? '#4a90d9' : s.eye;
+      ctx.beginPath(); ctx.ellipse(ex, ey + 2, 10, 11, 0, 0, Math.PI*2); ctx.fill();
+      // Pupil
+      ctx.fillStyle = '#1a1a1a';
+      ctx.beginPath(); ctx.ellipse(ex + 2, ey + 3, 5, 6, 0, 0, Math.PI*2); ctx.fill();
+      // Shine sparkle
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(ex + 4, ey - 1, 3, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex - 3, ey + 4, 1.5, 0, Math.PI*2); ctx.fill();
+      // Eyelashes (top)
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+      for (let l = -2; l <= 2; l++) {
+        const lx = ex + l*4;
+        ctx.beginPath(); ctx.moveTo(lx, ey - 14); ctx.lineTo(lx + l*1, ey - 20); ctx.stroke();
+      }
+      // Rosy cheeks
+      ctx.fillStyle = 'rgba(255,150,150,0.4)';
+      ctx.beginPath(); ctx.ellipse(ex + side*8, ey + 16, 10, 7, 0, 0, Math.PI*2); ctx.fill();
+    }
+
+    // MOUTH — big happy smile, opens wide when hungry
+    const mouthOpen = this.skin.mood === 'hungry'
+      ? 12 + Math.abs(Math.sin(this.angerAnim * 0.8)) * 18
+      : 5 + Math.abs(Math.sin(this.angerAnim * 0.5)) * 8;
+
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath();
+    ctx.moveTo(-22, headY + 22);
+    ctx.quadraticCurveTo(0, headY + 30 + mouthOpen, 22, headY + 22);
+    ctx.lineTo(22, headY + 26);
+    ctx.quadraticCurveTo(0, headY + 40 + mouthOpen, -22, headY + 26);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Tongue
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.ellipse(0, headY + 34 + mouthOpen * 0.5, 10, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+    // Cute teeth (2 big square ones)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.roundRect(-13, headY + 22, 11, 10, 2); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(2, headY + 22, 11, 10, 2); ctx.fill();
+
+    // Sweat drop (wanting food) for hungry giants
+    if (s.mood === 'hungry') {
+      ctx.fillStyle = 'rgba(100,180,255,0.8)';
+      ctx.beginPath();
+      ctx.arc(58, headY - 25, 5, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(53, headY - 25); ctx.lineTo(58, headY - 10); ctx.lineTo(63, headY - 25);
+      ctx.fill();
+    }
+
+    // CRYING OVERRIDE — sad face when giant reaches building
+    if (this.isCrying) {
+      const cryBob = Math.sin(this.cryAnim * 4) * 3;
+      ctx.translate(0, cryBob);
+
+      // Sad eyebrows (drooping inward)
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-28, headY - 22); ctx.lineTo(-10, headY - 14); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(28, headY - 22); ctx.lineTo(10, headY - 14); ctx.stroke();
+
+      // Sad eyes (squinting / closed with lines)
+      for (let side of [-1,1]) {
+        const ex = side * 20, ey = headY - 10;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.ellipse(ex, ey, 14, 16, 0, 0, Math.PI*2); ctx.fill();
+        // Closed sad eye line
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(ex - 12, ey + 2);
+        ctx.quadraticCurveTo(ex, ey + 8, ex + 12, ey + 2);
+        ctx.stroke();
+        // Tear streak on cheek
+        ctx.strokeStyle = 'rgba(100,180,255,0.7)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(ex + side*2, ey + 12); ctx.lineTo(ex + side*4, ey + 28); ctx.stroke();
+      }
+
+      // Sad frown mouth
+      ctx.fillStyle = '#c0392b';
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-20, headY + 30);
+      ctx.quadraticCurveTo(0, headY + 18, 20, headY + 30);
+      ctx.lineTo(20, headY + 26);
+      ctx.quadraticCurveTo(0, headY + 14, -20, headY + 26);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+
+      // Draw tears (floating drops)
+      this.tears.forEach(t => {
+        ctx.save();
+        ctx.translate(t.x - this.x, t.y - (this.y + cryBob));
+        ctx.globalAlpha = t.life * 0.85;
+        ctx.fillStyle = '#74b9ff';
+        ctx.beginPath();
+        ctx.arc(0, 0, Math.max(0.1, t.size * t.life), 0, Math.PI*2);
+        ctx.fill();
+        // Teardrop shape
+        ctx.beginPath();
+        ctx.moveTo(0, -t.size * t.life);
+        ctx.quadraticCurveTo(t.size * t.life * 0.8, 0, 0, t.size * t.life * 1.5);
+        ctx.quadraticCurveTo(-t.size * t.life * 0.8, 0, 0, -t.size * t.life);
+        ctx.fillStyle = 'rgba(116,185,255,0.7)';
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    ctx.restore();
+  }
+
+  getHitbox() {
+    return {x: this.x - this.width/2, y: this.y - this.height, w: this.width, h: this.height};
+  }
+}
+
+// =================== LAMBORGHINI ===================
+class Lamborghini {
+  constructor() {
+    this.x = UI_LEFT + (canvas.width - UI_LEFT - UI_RIGHT) * 0.22;
+    this.y = 100;
+    this.floatAnim = 0;
+    this.engineAnim = 0;
+    this.tilt = 0;
+    this.targetTilt = 0;
+  }
+
+  update() {
+    // Keep car in usable area
+    this.x = UI_LEFT + (canvas.width - UI_LEFT - UI_RIGHT) * 0.22;
+    this.floatAnim += 0.03;
+    this.engineAnim += 0.15;
+    this.tilt += (this.targetTilt - this.tilt) * 0.1;
+    this.targetTilt *= 0.95;
+
+    // Smoke trail
+    if (Math.random() < 0.4) {
+      smokeTrails.push({
+        x: this.x - 60,
+        y: this.y + 15 + Math.sin(this.floatAnim) * 8,
+        vx: -1 - Math.random(),
+        vy: -0.5 + Math.random() - 0.5,
+        life: 60, maxLife: 60,
+        size: 6 + Math.random() * 8,
+        color: `hsl(${180 + Math.random()*40},100%,${50+Math.random()*20}%)`
+      });
+    }
+  }
+
+  draw() {
+    ctx.save();
+    const fy = Math.sin(this.floatAnim) * 12;
+    ctx.translate(this.x, this.y + fy);
+    ctx.rotate(this.tilt);
+
+    // Engine glow
+    const enginePulse = (Math.sin(this.engineAnim) + 1) / 2;
+    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20 + enginePulse * 15;
+
+    // Thrusters
+    for (let tx of [-50, -20, 10]) {
+      ctx.fillStyle = `rgba(0,200,255,${0.3 + enginePulse * 0.5})`;
+      ctx.beginPath();
+      ctx.ellipse(tx, 22, 8, 6, 0, 0, Math.PI*2); ctx.fill();
+      // Flame
+      ctx.fillStyle = `rgba(100,200,255,${0.6 + enginePulse * 0.3})`;
+      ctx.beginPath();
+      ctx.moveTo(tx - 6, 22);
+      ctx.lineTo(tx, 22 + 15 + enginePulse * 10);
+      ctx.lineTo(tx + 6, 22);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Car body - futuristic Lamborghini shape
+    // Main body
+    ctx.shadowColor = '#00eeff'; ctx.shadowBlur = 15;
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath();
+    ctx.moveTo(-80, 10);
+    ctx.lineTo(-70, -5);
+    ctx.lineTo(-30, -18);
+    ctx.lineTo(20, -20);
+    ctx.lineTo(70, -8);
+    ctx.lineTo(80, 8);
+    ctx.lineTo(70, 18);
+    ctx.lineTo(-70, 18);
+    ctx.closePath(); ctx.fill();
+
+    // Roof
+    ctx.fillStyle = '#0f3460';
+    ctx.beginPath();
+    ctx.moveTo(-25, -18);
+    ctx.lineTo(-10, -35);
+    ctx.lineTo(40, -35);
+    ctx.lineTo(55, -18);
+    ctx.closePath(); ctx.fill();
+
+    // Windows
+    ctx.fillStyle = 'rgba(100,220,255,0.4)';
+    ctx.strokeStyle = '#00eeff'; ctx.lineWidth = 1.5;
+    // Front windshield
+    ctx.beginPath();
+    ctx.moveTo(-5, -18); ctx.lineTo(5, -33); ctx.lineTo(38, -33); ctx.lineTo(52, -18);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Side window
+    ctx.beginPath();
+    ctx.moveTo(-25, -18); ctx.lineTo(-12, -33); ctx.lineTo(2, -33); ctx.lineTo(-7, -18);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Neon underglow
+    ctx.strokeStyle = `rgba(0,255,255,${0.4 + enginePulse * 0.4})`;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#0ff'; ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.moveTo(-70, 18); ctx.lineTo(70, 18); ctx.stroke();
+
+    // Headlights
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#0ff'; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.ellipse(72, 0, 6, 4, 0.2, 0, Math.PI*2); ctx.fill();
+
+    // Lamborghini logo (simplified)
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 8;
+    ctx.font = 'bold 10px Arial';
+    ctx.fillText('🚗', 10, -24);
+
+    // People in the car (heads visible through window)
+    // Person 1 - driver
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffcc99';
+    ctx.beginPath(); ctx.ellipse(15, -28, 9, 9, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4a2800';
+    ctx.beginPath(); ctx.arc(15, -33, 7, Math.PI, 0); ctx.fill();
+    // Person 2 - bomb thrower
+    ctx.fillStyle = '#ffbbaa';
+    ctx.beginPath(); ctx.ellipse(38, -28, 8, 8, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#cc6600';
+    ctx.beginPath(); ctx.arc(38, -34, 7, Math.PI, 0); ctx.fill();
+    // Violin!
+    ctx.fillStyle = '#8B4513';
+    ctx.beginPath(); ctx.ellipse(48, -22, 5, 8, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(44, -14); ctx.lineTo(52, -30); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  getLaunchPos() {
+    const fy = Math.sin(this.floatAnim) * 12;
+    return {x: this.x + 60, y: this.y + fy + 5};
+  }
+}
+
+// =================== BUILDING ===================
+function drawBuilding() {
+  const bx = UI_LEFT + 8;
+  const bw = 100;
+  const bh = canvas.height * 0.55;
+  const by = canvas.height - bh - 150;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.fillRect(bx + 8, by + 8, bw, bh);
+
+  // Main structure - cheerful pastel yellow
+  ctx.fillStyle = '#fff9c4';
+  ctx.fillRect(bx, by, bw, bh);
+
+  // Stripes
+  ctx.fillStyle = '#ffe082';
+  ctx.fillRect(bx, by, 12, bh);
+  ctx.fillRect(bx + bw - 12, by, 12, bh);
+
+  // Windows (bright and lit)
+  const winCols = 3, winRows = 8;
+  const winW = 22, winH = 20;
+  const colGap = (bw - 20) / winCols;
+  const rowGap = (bh - 30) / winRows;
+  for (let r = 0; r < winRows; r++) {
+    for (let c = 0; c < winCols; c++) {
+      const wx = bx + 14 + c * colGap;
+      const wy = by + 16 + r * rowGap;
+      ctx.fillStyle = '#b3e5fc';
+      ctx.beginPath(); ctx.roundRect(wx, wy, winW, winH, 3); ctx.fill();
+      // Curtains
+      ctx.fillStyle = '#f48fb1';
+      ctx.fillRect(wx, wy, 6, winH);
+      ctx.fillRect(wx + winW - 6, wy, 6, winH);
+    }
+  }
+
+  // Roof
+  ctx.fillStyle = '#f06292';
+  ctx.beginPath();
+  ctx.moveTo(bx - 8, by);
+  ctx.lineTo(bx + bw/2, by - 30);
+  ctx.lineTo(bx + bw + 8, by);
+  ctx.fill();
+  // Chimney
+  ctx.fillStyle = '#e91e63';
+  ctx.fillRect(bx + bw*0.6, by - 45, 18, 25);
+  // Smoke puffs from chimney
+  const t2 = Date.now() * 0.001;
+  for (let s = 0; s < 3; s++) {
+    ctx.fillStyle = `rgba(200,200,200,${0.4 - s*0.12})`;
+    ctx.beginPath();
+    ctx.arc(bx + bw*0.6 + 9, by - 48 - s*18 + Math.sin(t2 + s)*4, 8 + s*5, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Cheering people in windows
+  const t = Date.now() * 0.002;
+  for (let r = 1; r < 5; r++) {
+    for (let c = 0; c < winCols; c++) {
+      if ((r + c) % 2 === 0) {
+        const wx = bx + 14 + c * colGap + winW/2;
+        const wy = by + 16 + r * rowGap + 6;
+        const wave = Math.sin(t * 2 + r + c) * 4;
+        // Head
+        ctx.fillStyle = r % 2 === 0 ? '#ffcc99' : '#ffbbaa';
+        ctx.beginPath(); ctx.arc(wx, wy + wave, 5, 0, Math.PI*2); ctx.fill();
+        // Waving arms (cheerful!)
+        ctx.strokeStyle = '#ffcc99'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(wx - 5, wy + 6 + wave);
+        ctx.lineTo(wx - 12, wy + wave - 3 + Math.sin(t*3 + r)*6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(wx + 5, wy + 6 + wave);
+        ctx.lineTo(wx + 12, wy + wave - 3 + Math.sin(t*3 + c + 1)*6);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Door
+  ctx.fillStyle = '#e91e63';
+  ctx.beginPath(); ctx.roundRect(bx + bw/2 - 14, by + bh - 35, 28, 35, [6,6,0,0]); ctx.fill();
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath(); ctx.arc(bx + bw/2 + 6, by + bh - 18, 3, 0, Math.PI*2); ctx.fill();
+}
+
+// =================== SKYLINE ===================
+function drawSkyline() {
+  // positions are fractions of the USABLE width (between panels)
+  const usableW = canvas.width - UI_LEFT - UI_RIGHT;
+  const ox = UI_LEFT; // offset
+  const buildings = [
+    {x:0.62, w:0.07, h:0.28, c:'#f8c3d3', wc:'#fde8ef'},
+    {x:0.69, w:0.05, h:0.38, c:'#b3d9f5', wc:'#d9eefb'},
+    {x:0.74, w:0.06, h:0.22, c:'#c8f0c8', wc:'#e5f9e5'},
+    {x:0.80, w:0.07, h:0.34, c:'#ffe0b3', wc:'#fff3e0'},
+    {x:0.87, w:0.05, h:0.19, c:'#e8d5f5', wc:'#f5eaff'},
+    {x:0.92, w:0.06, h:0.26, c:'#ffd5d5', wc:'#ffeeee'},
+  ];
+  buildings.forEach(b => {
+    const bx = ox + usableW * b.x;
+    const bw = usableW * b.w;
+    const bh = canvas.height * b.h;
+    const by = canvas.height - bh - 150;
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(bx + 5, by + 5, bw, bh);
+    // Wall
+    ctx.fillStyle = b.c;
+    ctx.fillRect(bx, by, bw, bh);
+    // Windows
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 2; c++) {
+        ctx.fillStyle = b.wc;
+        ctx.beginPath();
+        ctx.roundRect(bx + 6 + c*(bw/2 - 4), by + 10 + r*(bh/6), bw/2 - 10, bh/7 - 4, 3);
+        ctx.fill();
+      }
+    }
+    // Roof decoration
+    ctx.fillStyle = b.c;
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(bx + bw/2, by - 15);
+    ctx.lineTo(bx + bw, by);
+    ctx.fill();
+  });
+}
+
+// =================== SKY & CLOUDS ===================
+let cloudOffset = 0;
+const CLOUDS = Array.from({length:7}, (_,i) => ({
+  x: Math.random(), y: 0.04 + Math.random() * 0.22,
+  w: 0.1 + Math.random() * 0.14, h: 0.04 + Math.random() * 0.04
+}));
+
+function drawSky() {
+  // Bright cheerful daytime sky
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.75);
+  grad.addColorStop(0, '#3ab5e5');
+  grad.addColorStop(0.5, '#7dd3f0');
+  grad.addColorStop(1, '#c5eaf8');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height * 0.75);
+
+  // Cheerful sun
+  ctx.save();
+  const sunX = canvas.width * 0.85, sunY = canvas.height * 0.1;
+  ctx.fillStyle = '#FFE033';
+  ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 45;
+  ctx.beginPath(); ctx.arc(sunX, sunY, 38, 0, Math.PI*2); ctx.fill();
+  // Sun glow
+  ctx.fillStyle = 'rgba(255,220,0,0.18)';
+  ctx.beginPath(); ctx.arc(sunX, sunY, 60, 0, Math.PI*2); ctx.fill();
+  // Sun rays
+  ctx.strokeStyle = '#FFE033'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.shadowBlur = 10;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + Date.now() * 0.0003;
+    ctx.beginPath();
+    ctx.moveTo(sunX + Math.cos(a)*46, sunY + Math.sin(a)*46);
+    ctx.lineTo(sunX + Math.cos(a)*66, sunY + Math.sin(a)*66);
+    ctx.stroke();
+  }
+  // Happy face on sun
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#e6a800'; ctx.strokeStyle = '#e6a800'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(sunX - 12, sunY - 8, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(sunX + 12, sunY - 8, 4, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(sunX, sunY + 6, 14, 0.1, Math.PI - 0.1); ctx.stroke();
+  ctx.restore();
+
+  // Fluffy white clouds
+  cloudOffset += 0.0003;
+  CLOUDS.forEach(c => {
+    const cx = ((c.x + cloudOffset) % 1.25 - 0.1) * canvas.width;
+    const cy = c.y * canvas.height;
+    const cw = c.w * canvas.width, ch = c.h * canvas.height;
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath(); ctx.ellipse(cx, cy, cw, ch, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + cw*0.35, cy - ch*0.45, cw*0.65, ch*0.78, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx - cw*0.32, cy - ch*0.3, cw*0.55, ch*0.68, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + cw*0.62, cy - ch*0.1, cw*0.42, ch*0.58, 0, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+// =================== GROUND ===================
+function drawGround() {
+  const gy = canvas.height - 150;
+  // Green grassy ground
+  const grad = ctx.createLinearGradient(0, gy, 0, canvas.height);
+  grad.addColorStop(0, '#5cb85c');
+  grad.addColorStop(0.25, '#4cae4c');
+  grad.addColorStop(1, '#3a8a3a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, gy, canvas.width, canvas.height - gy);
+
+  // Grass tuft details
+  for (let gx = 20; gx < canvas.width; gx += 38) {
+    const h = 8 + Math.sin(gx * 0.3) * 4;
+    ctx.fillStyle = '#3d9a3d';
+    ctx.beginPath();
+    ctx.moveTo(gx, gy); ctx.lineTo(gx + 4, gy - h); ctx.lineTo(gx + 8, gy);
+    ctx.fill();
+  }
+
+  // Cobblestone path
+  ctx.fillStyle = '#c8b89a';
+  ctx.fillRect(0, canvas.height - 115, canvas.width, 45);
+  // Path stones
+  for (let px = 0; px < canvas.width; px += 60) {
+    ctx.fillStyle = px % 120 === 0 ? '#b8a88a' : '#c0b090';
+    ctx.beginPath(); ctx.roundRect(px + 4, canvas.height - 112, 52, 18, 4); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(px + 34, canvas.height - 90, 52, 18, 4); ctx.fill();
+  }
+
+  // Sidewalk
+  ctx.fillStyle = '#d4c9b0';
+  ctx.fillRect(0, canvas.height - 70, canvas.width, 22);
+
+  // Flowers scattered on grass
+  const flowers = [{x:0.08,c:'#ff69b4'},{x:0.18,c:'#ff0'},{x:0.55,c:'#ff69b4'},
+    {x:0.68,c:'#ff0'},{x:0.75,c:'#f90'},{x:0.88,c:'#ff69b4'},{x:0.95,c:'#ff0'}];
+  flowers.forEach(f => {
+    const fx = f.x * canvas.width, fy = gy + 20;
+    ctx.fillStyle = '#5cb85c';
+    ctx.fillRect(fx, fy, 3, 18);
+    ctx.fillStyle = f.c;
+    for (let p = 0; p < 5; p++) {
+      const pa = (p/5)*Math.PI*2;
+      ctx.beginPath(); ctx.ellipse(fx + Math.cos(pa)*5, fy + Math.sin(pa)*5, 4, 4, 0, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath(); ctx.arc(fx, fy, 4, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+// =================== PARTICLES ===================
+function createParticle(x, y, color, minV, maxV) {
+  const angle = Math.random() * Math.PI * 2;
+  const speed = minV + Math.random() * (maxV - minV);
+  particles.push({
+    x, y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    color, life: 1, decay: 0.02 + Math.random() * 0.03,
+    size: Math.max(0.5, 2 + Math.random() * 4),
+    gravity: 0.15
+  });
+}
+
+function createExplosion(x, y, color1, color2) {
+  // Food splat! Colorful stars and hearts instead of fire
+  explosions.push({x, y, r: 0, maxR: 110, life: 1, color1, color2, rings: 3});
+  screenShake = {x:0, y:0, duration:12, intensity:6};
+  const foodParts = ['⭐','💥','✨','🌟','💫','❤️','🎉'];
+  for (let i = 0; i < 60; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 9;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 2,
+      color: `hsl(${Math.random()*360},100%,65%)`,
+      life: 1, decay: 0.012 + Math.random() * 0.02,
+      size: Math.max(0.5, 4 + Math.random() * 7), gravity: 0.18
+    });
+  }
+  // Rainbow confetti
+  for (let i = 0; i < 20; i++) {
+    smokeTrails.push({
+      x: x + (Math.random()-0.5)*30, y,
+      vx: (Math.random()-0.5)*5,
+      vy: -3 - Math.random()*4,
+      life: 70, maxLife: 70,
+      size: 10 + Math.random()*15,
+      color: `rgba(${Math.floor(Math.random()*255)},${Math.floor(Math.random()*255)},${Math.floor(Math.random()*255)},0.7)`
+    });
+  }
+}
+
+// =================== FOOD ITEMS ===================
+const FOODS = ['🍕','🍔','🍩','🌮','🍦','🍰','🍎','🧁','🍟','🍣'];
+function launchBomb(fromX, fromY, toX, toY, noteColor) {
+  bombs.push({
+    x: fromX, y: fromY,
+    tx: toX, ty: toY,
+    color: noteColor,
+    life: 1, progress: 0,
+    trail: [],
+    food: FOODS[Math.floor(Math.random()*FOODS.length)],
+    spin: Math.random() * Math.PI * 2
+  });
+}
+
+// =================== GAME OBJECTS ===================
+let monster = new Monster(0);
+let car = new Lamborghini();
+let skinIndex = 0;
+let gameOver = false;
+let playerLives = 3;
+let cryingTimer = 0;   // how long giant cries before resetting
+let loseLifeFlash = 0; // red flash when life is lost
+
+// =================== NOTE DETECTION ===================
+let audioCtx = null;
+let analyser = null;
+let micActive = false;
+let micStream = null;
+let detectionInterval = null;
+let lastDetectedNote = null;
+let detectedNoteDisplay = document.getElementById('detectedNote');
+let micStatusEl = document.getElementById('micStatus');
+
+async function requestMic() {
+  try {
+    micStatusEl.textContent = 'Pedindo permissão...';
+    micStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 8192;
+    analyser.smoothingTimeConstant = 0.8;
+    const source = audioCtx.createMediaStreamSource(micStream);
+    source.connect(analyser);
+    micStatusEl.textContent = '✅ Microfone pronto!';
+    micStatusEl.style.color = '#44ff44';
+    document.getElementById('micBtn').textContent = '🎤 Microfone Conectado';
+    document.getElementById('micBtn').style.background = '#006600';
+    document.getElementById('micToggleCheck').disabled = false;
+  } catch(e) {
+    micStatusEl.textContent = '❌ Permissão negada';
+    micStatusEl.style.color = '#ff4444';
+    console.error(e);
+  }
+}
+
+function toggleMic(enabled) {
+  micActive = enabled && analyser;
+  if (micActive) {
+    micStatusEl.textContent = '🔴 Ouvindo...';
+    startPitchDetection();
+  } else {
+    micStatusEl.textContent = 'Microfone inativo';
+    detectedNoteDisplay.textContent = '';
+    if (detectionInterval) { clearInterval(detectionInterval); detectionInterval = null; }
+  }
+}
+
+function startPitchDetection() {
+  if (detectionInterval) clearInterval(detectionInterval);
+  detectionInterval = setInterval(() => {
+    if (!micActive || !analyser) return;
+    const freq = detectPitch();
+    if (freq > 0) {
+      const note = mapFreqToNote(freq);
+      if (note) {
+        detectedNoteDisplay.textContent = note;
+        detectedNoteDisplay.style.color = NOTE_COLORS[note];
+        if (note !== lastDetectedNote) {
+          lastDetectedNote = note;
+          playNote(note, true);
+        }
+      } else {
+        detectedNoteDisplay.textContent = '~';
+        lastDetectedNote = null;
+      }
+    } else {
+      detectedNoteDisplay.textContent = '';
+      lastDetectedNote = null;
+    }
+  }, 100);
+}
+
+function detectPitch() {
+  if (!analyser) return 0;
+  const bufLen = analyser.fftSize;
+  const buf = new Float32Array(bufLen);
+  analyser.getFloatTimeDomainData(buf);
+
+  // Check RMS
+  let rms = 0;
+  for (let i = 0; i < bufLen; i++) rms += buf[i]*buf[i];
+  rms = Math.sqrt(rms / bufLen);
+  if (rms < 0.01) return 0;
+
+  // Autocorrelation pitch detection
+  const sampleRate = audioCtx.sampleRate;
+  const minPeriod = Math.floor(sampleRate / 700);
+  const maxPeriod = Math.floor(sampleRate / 150);
+  let bestCorr = -1, bestPeriod = -1;
+  for (let period = minPeriod; period <= maxPeriod; period++) {
+    let corr = 0;
+    for (let i = 0; i < bufLen - period; i++) {
+      corr += buf[i] * buf[i + period];
+    }
+    corr /= (bufLen - period);
+    if (corr > bestCorr) { bestCorr = corr; bestPeriod = period; }
+  }
+  if (bestCorr < 0.01) return 0;
+  return sampleRate / bestPeriod;
+}
+
+function mapFreqToNote(freq) {
+  let best = null, bestRatio = Infinity;
+  for (const [note, f] of Object.entries(NOTE_FREQS)) {
+    // Check all octaves
+    for (let oct = -1; oct <= 2; oct++) {
+      const fOct = f * Math.pow(2, oct);
+      const ratio = Math.abs(Math.log2(freq / fOct));
+      if (ratio < bestRatio) { bestRatio = ratio; best = note; }
+    }
+  }
+  return bestRatio < FREQ_TOLERANCE ? best : null;
+}
+
+// =================== PLAY NOTE (keyboard/button) ===================
+function playNote(note, fromMic = false) {
+  // Highlight button
+  const btn = document.getElementById('btn' + note);
+  if (btn) {
+    btn.classList.add('hit');
+    setTimeout(() => btn.classList.remove('hit'), 200);
+  }
+
+  // Play sound
+  playNoteSound(note);
+
+  if (note === targetNote && !monster.dead) {
+    onCorrectNote();
+  }
+}
+
+function playNoteSound(note) {
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const freqMap = {G:196, D:293.66, A:440, E:659.25};
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freqMap[note], ac.currentTime);
+  gain.gain.setValueAtTime(0.3, ac.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.8);
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + 0.8);
+}
+
+function onCorrectNote() {
+  if (monster.dead || monster.isCrying || gameOver) return;
+  const pos = car.getLaunchPos();
+  const hb = monster.getHitbox();
+  const tx = hb.x + hb.w/2;
+  const ty = hb.y + hb.h/2;
+  car.targetTilt = -0.15;
+  launchBomb(pos.x, pos.y, tx, ty, NOTE_COLORS[targetNote]);
+}
+
+// =================== BOMB HIT ===================
+function bombHit(bomb) {
+  if (monster.dead || monster.isCrying) return;
+  createExplosion(bomb.tx, bomb.ty, NOTE_COLORS[targetNote] || '#ff8800', '#ffff00');
+
+  score += 100;
+  document.getElementById('score-display').innerHTML = `🍽️<br>${score}`;
+
+  // Play explosion sound
+  playExplosionSound();
+
+  // Damage monster
+  monster.health--;
+  updateHealthBar();
+
+  if (monster.health <= 0) {
+    monster.dead = true;
+    setTimeout(spawnNewMonster, 2000);
+  } else {
+    // Change skin on hit
+    const newSkinIdx = (skinIndex + 1) % MONSTER_SKINS.length;
+    const newMonster = new Monster(newSkinIdx);
+    newMonster.x = monster.x;
+    newMonster.y = monster.y;
+    newMonster.health = monster.health;
+    newMonster.maxHealth = monster.maxHealth;
+    monster = newMonster;
+    skinIndex = newSkinIdx;
+  }
+
+  // New target note
+  targetNote = NOTES[Math.floor(Math.random() * NOTES.length)];
+  updateTargetNoteDisplay();
+}
+
+function updateHealthBar() {
+  const pct = (monster.health / monster.maxHealth) * 100;
+  document.getElementById('healthBarFill').style.width = pct + '%';
+}
+
+let monsterCount = 0;
+let victoryFlash = 0;
+
+function spawnNewMonster() {
+  monsterCount++;
+  skinIndex = (skinIndex + 1) % MONSTER_SKINS.length;
+  monster = new Monster(skinIndex);
+  monster.maxHealth = 3 + Math.floor(monsterCount / 3);
+  monster.health = monster.maxHealth;
+  monster.speed = 1.2 + monsterCount * 0.15;
+  monster.isCrying = false;
+  monster.tears = [];
+  updateHealthBar();
+  targetNote = NOTES[Math.floor(Math.random() * NOTES.length)];
+  updateTargetNoteDisplay();
+  victoryFlash = 70;
+  for (let i = 0; i < 60; i++) {
+    createParticle(
+      Math.random() * canvas.width,
+      Math.random() * canvas.height * 0.5,
+      `hsl(${Math.random()*360},100%,65%)`,
+      2, 9
+    );
+  }
+}
+
+function updateTargetNoteDisplay() {
+  const el = document.getElementById('targetNoteName');
+  const elPt = document.getElementById('targetNotePt');
+  el.textContent = targetNote;
+  el.style.color = NOTE_COLORS[targetNote];
+  elPt.textContent = NOTE_NAMES_PT[targetNote];
+  elPt.style.color = NOTE_COLORS[targetNote];
+}
+
+function playExplosionSound() {
+  // Happy "yum yum!" chime sound
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6 - happy chord
+  notes.forEach((freq, i) => {
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, ac.currentTime + i * 0.07);
+    gain.gain.setValueAtTime(0, ac.currentTime + i * 0.07);
+    gain.gain.linearRampToValueAtTime(0.25, ac.currentTime + i * 0.07 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + i * 0.07 + 0.4);
+    osc.start(ac.currentTime + i * 0.07);
+    osc.stop(ac.currentTime + i * 0.07 + 0.5);
+  });
+}
+
+function playSadSound() {
+  // Descending sad trombone "wah wah wah wahhh"
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const steps = [
+    {f:494, t:0.0}, {f:440, t:0.18}, {f:392, t:0.36}, {f:311, t:0.54}
+  ];
+  steps.forEach(s => {
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(s.f, ac.currentTime + s.t);
+    gain.gain.setValueAtTime(0, ac.currentTime + s.t);
+    gain.gain.linearRampToValueAtTime(0.25, ac.currentTime + s.t + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + s.t + 0.35);
+    osc.start(ac.currentTime + s.t);
+    osc.stop(ac.currentTime + s.t + 0.4);
+  });
+}
+
+function loseLife() {
+  if (monster.isCrying) return; // already crying
+  monster.isCrying = true;
+  cryingTimer = 180; // 3 seconds at 60fps
+  playerLives--;
+  loseLifeFlash = 80;
+  playSadSound();
+  screenShake = {x:0, y:0, duration:20, intensity:5};
+  // Big tear burst particles
+  for (let i = 0; i < 30; i++) {
+    const angle = -Math.PI/2 + (Math.random()-0.5)*Math.PI;
+    const speed = 2 + Math.random()*5;
+    particles.push({
+      x: monster.x, y: monster.y - monster.height,
+      vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+      color: '#74b9ff',
+      life: 1, decay: 0.015 + Math.random()*0.02,
+      size: Math.max(0.5, 5 + Math.random()*8), gravity: 0.1
+    });
+  }
+}
+document.addEventListener('keydown', e => {
+  const k = e.key.toUpperCase();
+  if (['G','D','A','E'].includes(k)) playNote(k);
+});
+
+// =================== MAIN LOOP ===================
+updateTargetNoteDisplay();
+
+function gameLoop() {
+  // Screen shake
+  let sx = 0, sy = 0;
+  if (screenShake.duration > 0) {
+    const i = screenShake.intensity || 8;
+    sx = (Math.random()-0.5) * i;
+    sy = (Math.random()-0.5) * i;
+    screenShake.duration--;
+  }
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  // Draw background
+  drawSky();
+  drawGround();
+  drawSkyline();
+  drawBuilding();
+
+  // Update & draw smoke trails
+  smokeTrails = smokeTrails.filter(s => s.life > 0);
+  smokeTrails.forEach(s => {
+    s.x += s.vx; s.y += s.vy; s.life--;
+    const alpha = (s.life / s.maxLife) * 0.5;
+    ctx.fillStyle = s.color.replace('0.6)', `${alpha})`);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, Math.max(0.1, s.size * (1 - s.life/s.maxLife * 0.5)), 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // Update & draw bubbles (replace lasers)
+  lasers = lasers.filter(l => l.life > 0);
+  lasers.forEach(l => {
+    l.life--;
+    if (l.isBubble) {
+      l.bx += l.bvx; l.by += l.bvy;
+      l.bvy -= 0.05; // float up
+      l.bvx *= 0.99;
+      const alpha = l.life / l.maxLife;
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.85;
+      // Bubble
+      const grad = ctx.createRadialGradient(l.bx - l.br*0.3, l.by - l.br*0.3, 1, l.bx, l.by, l.br);
+      // Build hsla safely from hsl(h,s%,l%) string
+      const hslaColor = (hslStr, a) => hslStr.startsWith('hsl(')
+        ? hslStr.replace('hsl(', 'hsla(').slice(0, -1) + `,${a})`
+        : `rgba(180,220,255,${a})`;
+      grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+      grad.addColorStop(0.4, hslaColor(l.color, 0.5));
+      grad.addColorStop(1, hslaColor(l.color, 0.1));
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = l.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(l.bx, l.by, Math.max(0.1, l.br), 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      // Shine
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.beginPath(); ctx.arc(l.bx - l.br*0.3, l.by - l.br*0.3, l.br*0.25, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+  });
+
+  // Update & draw explosions
+  explosions = explosions.filter(e => e.life > 0);
+  explosions.forEach(e => {
+    e.r += (e.maxR - e.r) * 0.15;
+    e.life -= 0.045;
+    if (e.life <= 0) return;
+    const alpha = e.life;
+    ctx.save();
+    // Rainbow burst gradient
+    const grad = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, Math.max(0.1,e.r));
+    grad.addColorStop(0, `rgba(255,255,255,${alpha})`);
+    grad.addColorStop(0.25, `rgba(255,200,0,${alpha*0.8})`);
+    grad.addColorStop(0.55, `rgba(255,100,200,${alpha*0.5})`);
+    grad.addColorStop(0.8, `rgba(100,200,255,${alpha*0.3})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(e.x, e.y, Math.max(0.1,e.r), 0, Math.PI*2); ctx.fill();
+    // Sparkle ring
+    ctx.strokeStyle = e.color2; ctx.lineWidth = 4;
+    ctx.setLineDash([10,8]);
+    ctx.beginPath(); ctx.arc(e.x, e.y, Math.max(0.1,e.r), 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  });
+
+  // Car
+  car.update();
+  car.draw();
+
+  // Monster
+  monster.update();
+  monster.draw();
+
+  // Target note above giant (with food emoji) — or crying bubble
+  const noteAboveY = monster.y - monster.height - 90;
+  ctx.save();
+  if (monster.isCrying) {
+    // Crying speech bubble
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.strokeStyle = '#74b9ff';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(monster.x - 70, noteAboveY - 55, 140, 65, 16); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#74b9ff';
+    ctx.beginPath();
+    ctx.moveTo(monster.x - 10, noteAboveY + 10);
+    ctx.lineTo(monster.x, noteAboveY + 25);
+    ctx.lineTo(monster.x + 10, noteAboveY + 10);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.font = 'bold 30px serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('😭 Com fome!', monster.x, noteAboveY - 20);
+    ctx.font = '15px Arial';
+    ctx.fillStyle = '#888';
+    ctx.fillText(`-1 vida  (${playerLives} restante${playerLives !== 1 ? 's' : ''})`, monster.x, noteAboveY + 5);
+  } else {
+    // Normal note bubble
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.strokeStyle = NOTE_COLORS[targetNote];
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(monster.x - 55, noteAboveY - 55, 110, 75, 16); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.strokeStyle = NOTE_COLORS[targetNote];
+    ctx.beginPath();
+    ctx.moveTo(monster.x - 10, noteAboveY + 20);
+    ctx.lineTo(monster.x, noteAboveY + 35);
+    ctx.lineTo(monster.x + 10, noteAboveY + 20);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = NOTE_COLORS[targetNote];
+    ctx.font = 'bold 40px Arial Black';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = NOTE_COLORS[targetNote]; ctx.shadowBlur = 8;
+    ctx.fillText(targetNote, monster.x, noteAboveY - 10);
+    ctx.font = '15px Arial';
+    ctx.fillStyle = '#555'; ctx.shadowBlur = 0;
+    ctx.fillText(NOTE_NAMES_PT[targetNote], monster.x, noteAboveY + 12);
+  }
+  ctx.restore();
+
+  // Update & draw bombs
+  bombs = bombs.filter(b => b.progress < 1);
+  bombs.forEach(b => {
+    b.progress += 0.015;
+    // Parabola path
+    const t = b.progress;
+    const x = b.x + (b.tx - b.x) * t;
+    const arc = -Math.sin(t * Math.PI) * 200;
+    const y = b.y + (b.ty - b.y) * t + arc;
+    b.trail.push({x, y});
+    if (b.trail.length > 20) b.trail.shift();
+
+    // Draw trail (colorful sparkles)
+    b.trail.forEach((pt, i) => {
+      const alpha = i / b.trail.length;
+      ctx.fillStyle = `hsla(${(i*25)%360},100%,65%,${alpha * 0.6})`;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, Math.max(0.1, 5 * alpha), 0, Math.PI*2); ctx.fill();
+    });
+
+    // Draw food emoji spinning
+    ctx.save();
+    ctx.translate(x, y);
+    b.spin = (b.spin || 0) + 0.12;
+    ctx.rotate(b.spin);
+    ctx.font = '36px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(b.food || '🍕', 0, 0);
+    ctx.restore();
+
+    if (b.progress >= 1) { bombHit(b); }
+  });
+
+  // Update & draw particles
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += p.gravity;
+    p.vx *= 0.98; p.vy *= 0.98;
+    p.life -= p.decay;
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color; ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * p.life), 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+  ctx.globalAlpha = 1;
+
+  // ---- BUILDING REACH CHECK ----
+  const buildingRightEdge = UI_LEFT + 8 + 100 + 30; // left panel + building width + margin
+  if (!monster.dead && !monster.isCrying && monster.x < buildingRightEdge) {
+    loseLife();
+  }
+
+  // ---- CRYING TIMER ----
+  if (monster.isCrying && !monster.dead) {
+    cryingTimer--;
+    if (cryingTimer <= 0) {
+      // Giant shuffles back and a new one spawns
+      monster.dead = true;
+      monster.isCrying = false;
+      if (playerLives <= 0) {
+        gameOver = true;
+      } else {
+        setTimeout(spawnNewMonster, 800);
+      }
+    }
+  }
+
+  // ---- GAME OVER SCREEN ----
+  if (gameOver) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 72px Arial Black';
+    ctx.shadowColor = '#e74c3c'; ctx.shadowBlur = 30;
+    ctx.fillText('😢 Fim de Jogo! 😢', canvas.width/2, canvas.height/2 - 60);
+    ctx.font = 'bold 36px Arial';
+    ctx.shadowColor = '#f39c12'; ctx.shadowBlur = 15;
+    ctx.fillStyle = '#ffe';
+    ctx.fillText(`Você alimentou ${monsterCount} gigante${monsterCount !== 1 ? 's' : ''}!`, canvas.width/2, canvas.height/2 + 10);
+    ctx.fillText(`Pontuação: 🍽️ ${score} pts`, canvas.width/2, canvas.height/2 + 60);
+    ctx.font = 'bold 26px Arial';
+    ctx.fillStyle = '#aaffaa';
+    ctx.fillText('🔄 Pressione F5 para jogar de novo', canvas.width/2, canvas.height/2 + 120);
+    ctx.restore();
+    ctx.restore(); // screen shake
+    return;
+  }
+
+  // ---- LOSE LIFE FLASH (red tint) ----
+  if (loseLifeFlash > 0) {
+    loseLifeFlash--;
+    ctx.save();
+    ctx.globalAlpha = (loseLifeFlash / 80) * 0.45;
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  }
+
+  // ---- LIVES HUD ----
+  ctx.save();
+  ctx.font = '22px serif';
+  ctx.textAlign = 'right';
+  const hearts = '❤️'.repeat(Math.max(0, playerLives)) + '🖤'.repeat(Math.max(0, 3 - playerLives));
+  ctx.fillText(hearts, canvas.width - UI_RIGHT - 8, 28);
+  ctx.restore();
+  if (victoryFlash > 0) {
+    victoryFlash--;
+    ctx.save();
+    ctx.globalAlpha = (victoryFlash / 70) * 0.55;
+    const vGrad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width/2);
+    vGrad.addColorStop(0, '#ffffff');
+    vGrad.addColorStop(0.5, '#ffff99');
+    vGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = vGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#e67e22';
+    ctx.font = 'bold 58px Arial Black';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#f39c12'; ctx.shadowBlur = 20;
+    ctx.fillText('🍽️ O Gigante Comeu! 🍽️', canvas.width/2, canvas.height/2);
+    ctx.font = 'bold 32px Arial';
+    ctx.fillStyle = '#27ae60';
+    ctx.shadowColor = '#2ecc71'; ctx.shadowBlur = 10;
+    ctx.fillText(`🎉 Próximo: Gigante ${MONSTER_SKINS[skinIndex].name}!`, canvas.width/2, canvas.height/2 + 55);
+    ctx.restore();
+  }
+
+  // Giant counter badge
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(UI_LEFT + 8, 36, 130, 32, 10); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e67e22';
+  ctx.font = 'bold 13px Arial Black';
+  ctx.textAlign = 'left';
+  ctx.fillText(`🎪 Gigante #${monsterCount + 1}`, UI_LEFT + 16, 54);
+  ctx.fillStyle = '#888';
+  ctx.font = '10px Arial';
+  ctx.fillText(`Cor: ${monster.skin.name}`, UI_LEFT + 16, 64);
+  ctx.restore();
+
+  // Restore main screen-shake transform
+  ctx.restore();
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
