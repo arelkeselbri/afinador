@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎻 Violino vs Monstro!</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #000;
+    overflow: hidden;
+    font-family: 'Arial Black', Arial, sans-serif;
+    user-select: none;
+  }
+  #gameCanvas {
+    display: block;
+    cursor: crosshair;
+  }
+  #ui {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    padding: 10px 15px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    z-index: 100;
+  }
+  .note-btn {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 4px solid rgba(255,255,255,0.3);
+    font-size: 26px; font-weight: 900;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.1s;
+    text-shadow: 0 0 10px currentColor;
+    box-shadow: 0 0 20px currentColor, inset 0 0 10px rgba(0,0,0,0.3);
+    position: relative;
+    overflow: hidden;
+  }
+  .note-btn::after {
+    content: attr(data-pt);
+    position: absolute; bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px; opacity: 0.8;
+  }
+  .note-btn:hover { transform: scale(1.15); }
+  .note-btn:active { transform: scale(0.95); }
+  .note-btn.hit { transform: scale(1.3); box-shadow: 0 0 40px currentColor, 0 0 80px currentColor; }
+
+  #btnG { background: radial-gradient(circle, #8B0000, #300); color: #ff6666; }
+  #btnD { background: radial-gradient(circle, #004080, #001830); color: #66aaff; }
+  #btnA { background: radial-gradient(circle, #005500, #001500); color: #66ff66; }
+  #btnE { background: radial-gradient(circle, #804000, #201000); color: #ffaa44; }
+
+  #score-display {
+    color: #fff;
+    font-size: 22px;
+    text-shadow: 0 0 10px #ff0, 0 0 20px #f80;
+    min-width: 150px;
+    text-align: center;
+  }
+  #mic-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  #micBtn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 2px solid #0f3460;
+    color: #e94560;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px; font-weight: bold;
+    transition: all 0.2s;
+  }
+  #micBtn:hover { background: #e94560; color: #fff; border-color: #e94560; }
+  #micToggle {
+    display: flex; align-items: center; gap: 6px;
+    color: #aaa; font-size: 12px; cursor: pointer;
+  }
+  #micToggle input { width: 36px; height: 20px; cursor: pointer; accent-color: #e94560; }
+  #micStatus {
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    min-height: 16px;
+  }
+  #detectedNote {
+    font-size: 28px; font-weight: 900;
+    color: #0ff;
+    text-shadow: 0 0 20px #0ff;
+    min-width: 50px; text-align: center;
+    min-height: 40px;
+  }
+  #instructions {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+    text-align: center;
+    z-index: 100;
+    pointer-events: none;
+  }
+  #healthBar {
+    position: fixed; top: 50px; left: 50%; transform: translateX(-50%);
+    width: 300px; z-index: 100; pointer-events: none;
+  }
+  #healthBarLabel {
+    text-align: center; color: #ff4444; font-size: 14px; font-weight: bold;
+    text-shadow: 0 0 10px #f00;
+    margin-bottom: 4px;
+  }
+  #healthBarBg {
+    width: 100%; height: 20px;
+    background: rgba(0,0,0,0.5);
+    border: 2px solid #ff4444;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 0 15px rgba(255,0,0,0.5);
+  }
+  #healthBarFill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff0000, #ff6600, #ffff00);
+    border-radius: 10px;
+    transition: width 0.3s;
+    box-shadow: 0 0 10px #f00;
+  }
+  #targetNote {
+    position: fixed; top: 80px; right: 20px;
+    z-index: 100; pointer-events: none;
+    text-align: center;
+  }
+  #targetNoteLabel { color: #aaa; font-size: 12px; }
+  #targetNoteName {
+    font-size: 60px; font-weight: 900;
+    text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+  }
+  #targetNotePt {
+    font-size: 18px; color: #aaa;
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<div id="instructions">🎻 Toque a nota certa no violino para lançar bombas! | Teclas: G D A E</div>
+
+<div id="healthBar">
+  <div id="healthBarLabel">❤️ VIDA DO MONSTRO</div>
+  <div id="healthBarBg"><div id="healthBarFill" style="width:100%"></div></div>
+</div>
+
+<div id="targetNote">
+  <div id="targetNoteLabel">🎯 NOTA ALVO</div>
+  <div id="targetNoteName">G</div>
+  <div id="targetNotePt">Sol</div>
+</div>
+
+<div id="ui">
+  <div id="score-display">⭐ 0 pts</div>
+
+  <div style="display:flex; gap:12px; align-items:center;">
+    <button class="note-btn" id="btnG" data-note="G" data-pt="Sol" onclick="playNote('G')">G</button>
+    <button class="note-btn" id="btnD" data-note="D" data-pt="Ré" onclick="playNote('D')">D</button>
+    <button class="note-btn" id="btnA" data-note="A" data-pt="Lá" onclick="playNote('A')">A</button>
+    <button class="note-btn" id="btnE" data-note="E" data-pt="Mi" onclick="playNote('E')">E</button>
+  </div>
+
+  <div id="mic-panel">
+    <button id="micBtn" onclick="requestMic()">🎤 Usar Microfone</button>
+    <label id="micToggle">
+      <input type="checkbox" id="micToggleCheck" onchange="toggleMic(this.checked)">
+      <span>Microfone Ativo</span>
+    </label>
+    <div id="micStatus">Microfone desativado</div>
+    <div id="detectedNote"></div>
+  </div>
+</div>
+
+<script>
+// =================== SETUP ===================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// =================== GAME STATE ===================
+const NOTES = ['G','D','A','E'];
+const NOTE_NAMES_PT = {G:'Sol', D:'Ré', A:'Lá', E:'Mi'};
+const NOTE_COLORS = {G:'#ff4444', D:'#4488ff', A:'#44ff44', E:'#ffaa44'};
+// Violin open strings frequencies
+const NOTE_FREQS = {G:196, D:293.66, A:440, E:659.25};
+const FREQ_TOLERANCE = 0.15; // 15% tolerance
+
+let score = 0;
+let targetNote = NOTES[Math.floor(Math.random()*4)];
+let gameRunning = true;
+let screenShake = {x:0, y:0, duration:0};
+
+// Particles
+let particles = [];
+let explosions = [];
+let bombs = [];
+let lasers = [];
+let smokeTrails = [];
+
+// =================== MONSTER SKINS ===================
+const MONSTER_SKINS = [
+  { name:'Zumbi', primary:'#3a5a3a', secondary:'#2a4a2a', eye:'#00ff00', glow:'#0f0', wings:false, armCount:4 },
+  { name:'Rubi', primary:'#8b0000', secondary:'#600000', eye:'#ff2200', glow:'#f00', wings:true, armCount:6 },
+  { name:'Sombra', primary:'#111122', secondary:'#090915', eye:'#8800ff', glow:'#80f', wings:true, armCount:4 },
+  { name:'Fogo', primary:'#cc3300', secondary:'#991100', eye:'#ffff00', glow:'#ff0', wings:false, armCount:6 },
+  { name:'Gelo', primary:'#a0d8ef', secondary:'#70aacc', eye:'#00ffff', glow:'#0ff', wings:true, armCount:4 },
+  { name:'Ouro', primary:'#b8860b', secondary:'#8b6914', eye:'#fff700', glow:'#ff0', wings:false, armCount:8 },
+  { name:'Tóxico', primary:'#556b2f', secondary:'#3a4a1a', eye:'#aaff00', glow:'#af0', wings:true, armCount:6 },
+  { name:'Noite', primary:'#1a0033', secondary:'#110022', eye:'#ff00ff', glow:'#f0f', wings:true, armCount:8 },
+];
+
+// =================== MONSTER ===================
+class Monster {
+  constructor(skinIndex) {
+    this.skin = MONSTER_SKINS[skinIndex % MONSTER_SKINS.length];
+    this.x = canvas.width + 120;
+    this.y = canvas.height - 220;
+    this.speed = 1.2;
+    this.health = 3;
+    this.maxHealth = 3;
+    this.angerAnim = 0;
+    this.walkAnim = 0;
+    this.laserTimer = 0;
+    this.laserCooldown = 180 + Math.random() * 120;
+    this.armAngles = [];
+    const n = this.skin.armCount;
+    for (let i = 0; i < n; i++) this.armAngles.push(Math.random() * Math.PI * 2);
+    this.width = 130;
+    this.height = 160;
+    this.dead = false;
+    this.deathAnim = 0;
+  }
+
+  update() {
+    if (this.dead) { this.deathAnim += 0.05; return; }
+    this.x -= this.speed;
+    this.walkAnim += 0.08;
+    this.angerAnim += 0.12;
+    for (let i = 0; i < this.armAngles.length; i++) {
+      this.armAngles[i] += 0.03 * (i % 2 === 0 ? 1 : -1);
+    }
+    this.laserTimer++;
+    if (this.laserTimer >= this.laserCooldown) {
+      this.fireLaser();
+      this.laserTimer = 0;
+      this.laserCooldown = 120 + Math.random() * 180;
+    }
+  }
+
+  fireLaser() {
+    const eyeL = {x: this.x - 20, y: this.y - this.height/2 + 20};
+    const eyeR = {x: this.x + 20, y: this.y - this.height/2 + 20};
+    const target = {x: this.x - 400, y: this.y - this.height/2};
+    lasers.push({
+      x1: eyeL.x, y1: eyeL.y, x2: target.x, y2: target.y,
+      life: 40, maxLife: 40, color: this.skin.glow
+    });
+    lasers.push({
+      x1: eyeR.x, y1: eyeR.y, x2: target.x + 5, y2: target.y,
+      life: 40, maxLife: 40, color: this.skin.glow
+    });
+    screenShake = {x:0, y:0, duration:15};
+    for (let i = 0; i < 20; i++) {
+      createParticle(eyeL.x, eyeL.y, this.skin.glow, 3, 8);
+      createParticle(eyeR.x, eyeR.y, this.skin.glow, 3, 8);
+    }
+  }
+
+  draw() {
+    ctx.save();
+    const s = this.skin;
+    const cx = this.x, cy = this.y;
+    const bodyW = this.width, bodyH = this.height;
+    const bob = Math.sin(this.walkAnim) * 5;
+    const shake = Math.sin(this.angerAnim * 3) * 2;
+
+    if (this.dead) {
+      ctx.globalAlpha = 1 - this.deathAnim;
+      ctx.translate(cx, cy + this.deathAnim * 80);
+      ctx.rotate(this.deathAnim * 0.5);
+    } else {
+      ctx.translate(cx + shake, cy + bob);
+    }
+
+    // Wings
+    if (s.wings) {
+      const wingFlap = Math.sin(this.walkAnim * 2) * 0.3;
+      ctx.save();
+      ctx.fillStyle = s.secondary;
+      ctx.shadowColor = s.glow; ctx.shadowBlur = 15;
+      // Left wing
+      ctx.save(); ctx.rotate(-0.5 + wingFlap);
+      ctx.beginPath();
+      ctx.moveTo(-bodyW/2, -bodyH/4);
+      ctx.bezierCurveTo(-bodyW*1.8, -bodyH*0.8, -bodyW*2, 0, -bodyW/2, bodyH/4);
+      ctx.fillStyle = s.primary; ctx.fill();
+      ctx.strokeStyle = s.glow; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+      // Right wing
+      ctx.save(); ctx.scale(-1,1); ctx.rotate(-0.5 + wingFlap);
+      ctx.beginPath();
+      ctx.moveTo(-bodyW/2, -bodyH/4);
+      ctx.bezierCurveTo(-bodyW*1.8, -bodyH*0.8, -bodyW*2, 0, -bodyW/2, bodyH/4);
+      ctx.fillStyle = s.primary; ctx.fill();
+      ctx.strokeStyle = s.glow; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+      ctx.restore();
+    }
+
+    // Extra arms
+    for (let i = 0; i < s.armCount; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const offset = Math.floor(i/2) * 28;
+      const angle = this.armAngles[i] + Math.sin(this.walkAnim + i) * 0.3;
+      const ax = side * bodyW/2;
+      const ay = -bodyH/4 + offset - 40;
+      const len = 60 + Math.sin(this.walkAnim + i*0.7) * 15;
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(angle);
+      ctx.strokeStyle = s.secondary;
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = s.glow; ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, len);
+      ctx.stroke();
+      // Claw
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 4;
+      for (let c = -1; c <= 1; c++) {
+        ctx.save(); ctx.translate(0, len); ctx.rotate(c * 0.4);
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(side*8, 18);
+        ctx.stroke(); ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    // Body
+    ctx.shadowColor = s.glow; ctx.shadowBlur = 30;
+    ctx.fillStyle = s.primary;
+    // Torso
+    ctx.beginPath();
+    ctx.ellipse(0, 0, bodyW/2, bodyH/2, 0, 0, Math.PI*2);
+    ctx.fill();
+    // Chest details
+    ctx.fillStyle = s.secondary;
+    ctx.beginPath();
+    ctx.ellipse(0, bodyH/6, bodyW/3, bodyH/4, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Legs
+    const legSwing = Math.sin(this.walkAnim) * 0.3;
+    for (let side of [-1,1]) {
+      ctx.save();
+      ctx.translate(side * 30, bodyH/2 - 10);
+      ctx.rotate(side * legSwing);
+      ctx.fillStyle = s.primary;
+      ctx.shadowColor = s.glow; ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.roundRect(-15, 0, 30, 60, 8);
+      ctx.fill();
+      // Foot
+      ctx.translate(0, 60);
+      ctx.rotate(-side * legSwing * 0.5);
+      ctx.beginPath();
+      ctx.ellipse(side*8, 5, 25, 12, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Neck
+    ctx.fillStyle = s.primary;
+    ctx.beginPath();
+    ctx.roundRect(-18, -bodyH/2 - 25, 36, 35, 5);
+    ctx.fill();
+
+    // Head
+    const headY = -bodyH/2 - 65;
+    ctx.shadowColor = s.glow; ctx.shadowBlur = 25;
+    ctx.fillStyle = s.primary;
+    ctx.beginPath();
+    ctx.ellipse(0, headY, 50, 45, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Horns
+    for (let sx of [-1,1]) {
+      ctx.save();
+      ctx.translate(sx * 30, headY - 20);
+      ctx.rotate(sx * 0.3);
+      ctx.fillStyle = s.secondary;
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(-sx*10, -40); ctx.lineTo(sx*8, -35);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // Spikes on head
+    for (let i = -2; i <= 2; i++) {
+      ctx.fillStyle = s.secondary;
+      ctx.beginPath();
+      ctx.moveTo(i * 10, headY - 35);
+      ctx.lineTo(i * 10 - 5, headY - 55);
+      ctx.lineTo(i * 10 + 5, headY - 55);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Angry eyebrows
+    const angryBrow = Math.sin(this.angerAnim) * 3;
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-30, headY - 20 - angryBrow);
+    ctx.lineTo(-10, headY - 12 - angryBrow * 0.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(30, headY - 20 - angryBrow);
+    ctx.lineTo(10, headY - 12 - angryBrow * 0.5);
+    ctx.stroke();
+
+    // Eyes (glowing)
+    const eyePulse = (Math.sin(this.angerAnim * 2) + 1) / 2;
+    for (let ex of [-1,1]) {
+      const eyeX = ex * 18, eyeY = headY - 8;
+      ctx.shadowColor = s.eye; ctx.shadowBlur = 20 + eyePulse * 20;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(eyeX, eyeY, 11, 10, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = s.eye;
+      ctx.beginPath();
+      ctx.ellipse(eyeX, eyeY, 7, 7, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(eyeX + 2, eyeY, 4, 4, 0, 0, Math.PI*2); ctx.fill();
+      // Eye glow rings
+      ctx.strokeStyle = s.eye; ctx.lineWidth = 2;
+      ctx.globalAlpha = eyePulse * 0.7;
+      ctx.beginPath();
+      ctx.ellipse(eyeX, eyeY, 14 + eyePulse*5, 14 + eyePulse*5, 0, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Angry mouth
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.fillStyle = '#8B0000';
+    ctx.beginPath();
+    ctx.moveTo(-20, headY + 18);
+    ctx.quadraticCurveTo(0, headY + 28 + Math.abs(Math.sin(this.angerAnim)) * 5, 20, headY + 18);
+    ctx.lineTo(20, headY + 22);
+    ctx.quadraticCurveTo(0, headY + 34, -20, headY + 22);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Teeth
+    ctx.fillStyle = '#eee';
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.rect(i * 7 - 3, headY + 18, 6, 8);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  getHitbox() {
+    return {x: this.x - this.width/2, y: this.y - this.height, w: this.width, h: this.height};
+  }
+}
+
+// =================== LAMBORGHINI ===================
+class Lamborghini {
+  constructor() {
+    this.x = canvas.width * 0.2;
+    this.y = 120;
+    this.floatAnim = 0;
+    this.engineAnim = 0;
+    this.tilt = 0;
+    this.targetTilt = 0;
+  }
+
+  update() {
+    this.floatAnim += 0.03;
+    this.engineAnim += 0.15;
+    this.tilt += (this.targetTilt - this.tilt) * 0.1;
+    this.targetTilt *= 0.95;
+
+    // Smoke trail
+    if (Math.random() < 0.4) {
+      smokeTrails.push({
+        x: this.x - 60,
+        y: this.y + 15 + Math.sin(this.floatAnim) * 8,
+        vx: -1 - Math.random(),
+        vy: -0.5 + Math.random() - 0.5,
+        life: 60, maxLife: 60,
+        size: 6 + Math.random() * 8,
+        color: `hsl(${180 + Math.random()*40},100%,${50+Math.random()*20}%)`
+      });
+    }
+  }
+
+  draw() {
+    ctx.save();
+    const fy = Math.sin(this.floatAnim) * 12;
+    ctx.translate(this.x, this.y + fy);
+    ctx.rotate(this.tilt);
+
+    // Engine glow
+    const enginePulse = (Math.sin(this.engineAnim) + 1) / 2;
+    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20 + enginePulse * 15;
+
+    // Thrusters
+    for (let tx of [-50, -20, 10]) {
+      ctx.fillStyle = `rgba(0,200,255,${0.3 + enginePulse * 0.5})`;
+      ctx.beginPath();
+      ctx.ellipse(tx, 22, 8, 6, 0, 0, Math.PI*2); ctx.fill();
+      // Flame
+      ctx.fillStyle = `rgba(100,200,255,${0.6 + enginePulse * 0.3})`;
+      ctx.beginPath();
+      ctx.moveTo(tx - 6, 22);
+      ctx.lineTo(tx, 22 + 15 + enginePulse * 10);
+      ctx.lineTo(tx + 6, 22);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Car body - futuristic Lamborghini shape
+    // Main body
+    ctx.shadowColor = '#00eeff'; ctx.shadowBlur = 15;
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath();
+    ctx.moveTo(-80, 10);
+    ctx.lineTo(-70, -5);
+    ctx.lineTo(-30, -18);
+    ctx.lineTo(20, -20);
+    ctx.lineTo(70, -8);
+    ctx.lineTo(80, 8);
+    ctx.lineTo(70, 18);
+    ctx.lineTo(-70, 18);
+    ctx.closePath(); ctx.fill();
+
+    // Roof
+    ctx.fillStyle = '#0f3460';
+    ctx.beginPath();
+    ctx.moveTo(-25, -18);
+    ctx.lineTo(-10, -35);
+    ctx.lineTo(40, -35);
+    ctx.lineTo(55, -18);
+    ctx.closePath(); ctx.fill();
+
+    // Windows
+    ctx.fillStyle = 'rgba(100,220,255,0.4)';
+    ctx.strokeStyle = '#00eeff'; ctx.lineWidth = 1.5;
+    // Front windshield
+    ctx.beginPath();
+    ctx.moveTo(-5, -18); ctx.lineTo(5, -33); ctx.lineTo(38, -33); ctx.lineTo(52, -18);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Side window
+    ctx.beginPath();
+    ctx.moveTo(-25, -18); ctx.lineTo(-12, -33); ctx.lineTo(2, -33); ctx.lineTo(-7, -18);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Neon underglow
+    ctx.strokeStyle = `rgba(0,255,255,${0.4 + enginePulse * 0.4})`;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#0ff'; ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.moveTo(-70, 18); ctx.lineTo(70, 18); ctx.stroke();
+
+    // Headlights
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = '#0ff'; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.ellipse(72, 0, 6, 4, 0.2, 0, Math.PI*2); ctx.fill();
+
+    // Lamborghini logo (simplified)
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 8;
+    ctx.font = 'bold 10px Arial';
+    ctx.fillText('🚗', 10, -24);
+
+    // People in the car (heads visible through window)
+    // Person 1 - driver
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffcc99';
+    ctx.beginPath(); ctx.ellipse(15, -28, 9, 9, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4a2800';
+    ctx.beginPath(); ctx.arc(15, -33, 7, Math.PI, 0); ctx.fill();
+    // Person 2 - bomb thrower
+    ctx.fillStyle = '#ffbbaa';
+    ctx.beginPath(); ctx.ellipse(38, -28, 8, 8, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#cc6600';
+    ctx.beginPath(); ctx.arc(38, -34, 7, Math.PI, 0); ctx.fill();
+    // Violin!
+    ctx.fillStyle = '#8B4513';
+    ctx.beginPath(); ctx.ellipse(48, -22, 5, 8, 0.3, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(44, -14); ctx.lineTo(52, -30); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  getLaunchPos() {
+    const fy = Math.sin(this.floatAnim) * 12;
+    return {x: this.x + 60, y: this.y + fy + 5};
+  }
+}
+
+// =================== BUILDING ===================
+function drawBuilding() {
+  const bx = canvas.width * 0.12;
+  const bw = 110;
+  const bh = canvas.height * 0.6;
+  const by = canvas.height - bh;
+
+  // Building shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(bx + 10, by + 10, bw, bh);
+
+  // Main structure
+  ctx.fillStyle = '#1a2a3a';
+  ctx.fillRect(bx, by, bw, bh);
+
+  // Glass facade
+  ctx.fillStyle = '#1e3a5a';
+  ctx.fillRect(bx + 5, by, bw - 10, bh - 5);
+
+  // Windows
+  const winCols = 4, winRows = 10;
+  const winW = 18, winH = 22;
+  const colGap = (bw - 20) / winCols;
+  const rowGap = (bh - 40) / winRows;
+  for (let r = 0; r < winRows; r++) {
+    for (let c = 0; c < winCols; c++) {
+      const wx = bx + 12 + c * colGap;
+      const wy = by + 20 + r * rowGap;
+      const lit = Math.sin(wx * 0.3 + wy * 0.2 + Date.now() * 0.001) > -0.3;
+      ctx.fillStyle = lit ? `rgba(255,230,120,${0.5+Math.random()*0.3})` : 'rgba(30,60,100,0.8)';
+      ctx.fillRect(wx, wy, winW, winH);
+      if (lit) {
+        ctx.fillStyle = 'rgba(255,255,200,0.15)';
+        ctx.fillRect(wx, wy, 6, winH);
+      }
+    }
+  }
+
+  // People in windows (panicking)
+  const t = Date.now() * 0.002;
+  for (let r = 2; r < 7; r++) {
+    for (let c = 0; c < winCols; c++) {
+      if (Math.sin(r * 1.7 + c * 2.3) > 0.3) {
+        const wx = bx + 12 + c * colGap + winW/2;
+        const wy = by + 20 + r * rowGap + 8;
+        const wave = Math.sin(t + r * c) * 3;
+        // Head
+        ctx.fillStyle = '#ffcc99';
+        ctx.beginPath(); ctx.arc(wx, wy + wave, 5, 0, Math.PI*2); ctx.fill();
+        // Arms waving
+        ctx.strokeStyle = '#ffcc99'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(wx - 5, wy + 5 + wave);
+        ctx.lineTo(wx - 10, wy + wave + Math.sin(t*3 + r)*4);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(wx + 5, wy + 5 + wave);
+        ctx.lineTo(wx + 10, wy + wave + Math.sin(t*3 + c)*4);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Antenna
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(bx + bw/2, by); ctx.lineTo(bx + bw/2, by - 30); ctx.stroke();
+  ctx.fillStyle = '#f00';
+  ctx.beginPath(); ctx.arc(bx + bw/2, by - 33, 5, 0, Math.PI*2); ctx.fill();
+}
+
+// =================== SKYLINE ===================
+function drawSkyline() {
+  const buildings = [
+    {x:0.05, w:0.06, h:0.35, c:'#0d1b2a'},
+    {x:0.11, w:0.04, h:0.45, c:'#0a1520'},
+    {x:0.65, w:0.08, h:0.3, c:'#0d1b2a'},
+    {x:0.73, w:0.05, h:0.42, c:'#0a1520'},
+    {x:0.78, w:0.07, h:0.25, c:'#0d1b2a'},
+    {x:0.85, w:0.06, h:0.38, c:'#0a1520'},
+    {x:0.91, w:0.05, h:0.22, c:'#0d1b2a'},
+  ];
+  buildings.forEach(b => {
+    const bx = canvas.width * b.x;
+    const bw = canvas.width * b.w;
+    const bh = canvas.height * b.h;
+    const by = canvas.height - bh;
+    ctx.fillStyle = b.c;
+    ctx.fillRect(bx, by, bw, bh);
+    // Windows
+    for (let r = 0; r < 6; r++) {
+      for (let c = 0; c < 3; c++) {
+        if (Math.random() > 0.6) {
+          ctx.fillStyle = 'rgba(255,200,100,0.4)';
+          ctx.fillRect(bx + 5 + c * (bw/3 - 2), by + 10 + r * (bh/7), bw/3 - 6, bh/8 - 4);
+        }
+      }
+    }
+  });
+}
+
+// =================== SKY & CLOUDS ===================
+let cloudOffset = 0;
+const CLOUDS = Array.from({length:6}, (_,i) => ({
+  x: Math.random(), y: 0.05 + Math.random() * 0.2,
+  w: 0.1 + Math.random() * 0.12, h: 0.04 + Math.random() * 0.03
+}));
+
+function drawSky() {
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.75);
+  grad.addColorStop(0, '#050510');
+  grad.addColorStop(0.4, '#0a0a25');
+  grad.addColorStop(0.7, '#1a0a1a');
+  grad.addColorStop(1, '#300a00');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height * 0.75);
+
+  // Stars
+  if (!window.stars) {
+    window.stars = Array.from({length:200}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height * 0.6,
+      r: 0.5 + Math.random() * 1.5,
+      blink: Math.random() * Math.PI * 2
+    }));
+  }
+  window.stars.forEach(s => {
+    s.blink += 0.02;
+    const alpha = 0.3 + Math.sin(s.blink) * 0.3;
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+  });
+
+  // Moon
+  ctx.fillStyle = 'rgba(255,240,200,0.9)';
+  ctx.shadowColor = 'rgba(255,240,150,0.5)'; ctx.shadowBlur = 30;
+  ctx.beginPath(); ctx.arc(canvas.width * 0.85, canvas.height * 0.1, 35, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#050510';
+  ctx.beginPath(); ctx.arc(canvas.width * 0.85 + 12, canvas.height * 0.1 - 8, 30, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Clouds
+  cloudOffset += 0.0003;
+  CLOUDS.forEach(c => {
+    const cx = ((c.x + cloudOffset) % 1.2 - 0.1) * canvas.width;
+    const cy = c.y * canvas.height;
+    const cw = c.w * canvas.width, ch = c.h * canvas.height;
+    ctx.fillStyle = 'rgba(30,30,60,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, cw, ch, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx + cw*0.3, cy - ch*0.3, cw*0.6, ch*0.7, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx - cw*0.3, cy - ch*0.2, cw*0.5, ch*0.6, 0, 0, Math.PI*2); ctx.fill();
+  });
+}
+
+// =================== GROUND ===================
+function drawGround() {
+  const gy = canvas.height - 150;
+  const grad = ctx.createLinearGradient(0, gy, 0, canvas.height);
+  grad.addColorStop(0, '#2d1a0a');
+  grad.addColorStop(0.3, '#1a0d05');
+  grad.addColorStop(1, '#100800');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, gy, canvas.width, canvas.height - gy);
+
+  // Road
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, canvas.height - 120, canvas.width, 50);
+  ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 3; ctx.setLineDash([40,30]);
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height - 95); ctx.lineTo(canvas.width, canvas.height - 95);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Sidewalk
+  ctx.fillStyle = '#333';
+  ctx.fillRect(0, canvas.height - 70, canvas.width, 25);
+}
+
+// =================== PARTICLES ===================
+function createParticle(x, y, color, minV, maxV) {
+  const angle = Math.random() * Math.PI * 2;
+  const speed = minV + Math.random() * (maxV - minV);
+  particles.push({
+    x, y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    color, life: 1, decay: 0.02 + Math.random() * 0.03,
+    size: Math.max(0.5, 2 + Math.random() * 4),
+    gravity: 0.15
+  });
+}
+
+function createExplosion(x, y, color1, color2) {
+  explosions.push({x, y, r: 0, maxR: 120, life: 1, color1, color2, rings: 3});
+  screenShake = {x:0, y:0, duration:25, intensity:12};
+  for (let i = 0; i < 80; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 10;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 3,
+      color: Math.random() < 0.5 ? color1 : color2,
+      life: 1, decay: 0.01 + Math.random() * 0.02,
+      size: Math.max(0.5, 3 + Math.random() * 8), gravity: 0.2
+    });
+  }
+  // Smoke
+  for (let i = 0; i < 30; i++) {
+    smokeTrails.push({
+      x: x + (Math.random()-0.5)*40, y,
+      vx: (Math.random()-0.5)*2,
+      vy: -1 - Math.random()*3,
+      life: 80, maxLife: 80,
+      size: 20 + Math.random()*30,
+      color: `rgba(100,100,100,0.6)`
+    });
+  }
+}
+
+// =================== BOMBS ===================
+function launchBomb(fromX, fromY, toX, toY, noteColor) {
+  bombs.push({
+    x: fromX, y: fromY,
+    tx: toX, ty: toY,
+    color: noteColor,
+    life: 1, progress: 0,
+    trail: []
+  });
+}
+
+// =================== GAME OBJECTS ===================
+let monster = new Monster(0);
+let car = new Lamborghini();
+let skinIndex = 0;
+let gameOver = false;
+
+// =================== NOTE DETECTION ===================
+let audioCtx = null;
+let analyser = null;
+let micActive = false;
+let micStream = null;
+let detectionInterval = null;
+let lastDetectedNote = null;
+let detectedNoteDisplay = document.getElementById('detectedNote');
+let micStatusEl = document.getElementById('micStatus');
+
+async function requestMic() {
+  try {
+    micStatusEl.textContent = 'Pedindo permissão...';
+    micStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 8192;
+    analyser.smoothingTimeConstant = 0.8;
+    const source = audioCtx.createMediaStreamSource(micStream);
+    source.connect(analyser);
+    micStatusEl.textContent = '✅ Microfone pronto!';
+    micStatusEl.style.color = '#44ff44';
+    document.getElementById('micBtn').textContent = '🎤 Microfone Conectado';
+    document.getElementById('micBtn').style.background = '#006600';
+    document.getElementById('micToggleCheck').disabled = false;
+  } catch(e) {
+    micStatusEl.textContent = '❌ Permissão negada';
+    micStatusEl.style.color = '#ff4444';
+    console.error(e);
+  }
+}
+
+function toggleMic(enabled) {
+  micActive = enabled && analyser;
+  if (micActive) {
+    micStatusEl.textContent = '🔴 Ouvindo...';
+    startPitchDetection();
+  } else {
+    micStatusEl.textContent = 'Microfone inativo';
+    detectedNoteDisplay.textContent = '';
+    if (detectionInterval) { clearInterval(detectionInterval); detectionInterval = null; }
+  }
+}
+
+function startPitchDetection() {
+  if (detectionInterval) clearInterval(detectionInterval);
+  detectionInterval = setInterval(() => {
+    if (!micActive || !analyser) return;
+    const freq = detectPitch();
+    if (freq > 0) {
+      const note = mapFreqToNote(freq);
+      if (note) {
+        detectedNoteDisplay.textContent = note;
+        detectedNoteDisplay.style.color = NOTE_COLORS[note];
+        if (note !== lastDetectedNote) {
+          lastDetectedNote = note;
+          playNote(note, true);
+        }
+      } else {
+        detectedNoteDisplay.textContent = '~';
+        lastDetectedNote = null;
+      }
+    } else {
+      detectedNoteDisplay.textContent = '';
+      lastDetectedNote = null;
+    }
+  }, 100);
+}
+
+function detectPitch() {
+  if (!analyser) return 0;
+  const bufLen = analyser.fftSize;
+  const buf = new Float32Array(bufLen);
+  analyser.getFloatTimeDomainData(buf);
+
+  // Check RMS
+  let rms = 0;
+  for (let i = 0; i < bufLen; i++) rms += buf[i]*buf[i];
+  rms = Math.sqrt(rms / bufLen);
+  if (rms < 0.01) return 0;
+
+  // Autocorrelation pitch detection
+  const sampleRate = audioCtx.sampleRate;
+  const minPeriod = Math.floor(sampleRate / 700);
+  const maxPeriod = Math.floor(sampleRate / 150);
+  let bestCorr = -1, bestPeriod = -1;
+  for (let period = minPeriod; period <= maxPeriod; period++) {
+    let corr = 0;
+    for (let i = 0; i < bufLen - period; i++) {
+      corr += buf[i] * buf[i + period];
+    }
+    corr /= (bufLen - period);
+    if (corr > bestCorr) { bestCorr = corr; bestPeriod = period; }
+  }
+  if (bestCorr < 0.01) return 0;
+  return sampleRate / bestPeriod;
+}
+
+function mapFreqToNote(freq) {
+  let best = null, bestRatio = Infinity;
+  for (const [note, f] of Object.entries(NOTE_FREQS)) {
+    // Check all octaves
+    for (let oct = -1; oct <= 2; oct++) {
+      const fOct = f * Math.pow(2, oct);
+      const ratio = Math.abs(Math.log2(freq / fOct));
+      if (ratio < bestRatio) { bestRatio = ratio; best = note; }
+    }
+  }
+  return bestRatio < FREQ_TOLERANCE ? best : null;
+}
+
+// =================== PLAY NOTE (keyboard/button) ===================
+function playNote(note, fromMic = false) {
+  // Highlight button
+  const btn = document.getElementById('btn' + note);
+  if (btn) {
+    btn.classList.add('hit');
+    setTimeout(() => btn.classList.remove('hit'), 200);
+  }
+
+  // Play sound
+  playNoteSound(note);
+
+  if (note === targetNote && !monster.dead) {
+    onCorrectNote();
+  }
+}
+
+function playNoteSound(note) {
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const freqMap = {G:196, D:293.66, A:440, E:659.25};
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freqMap[note], ac.currentTime);
+  gain.gain.setValueAtTime(0.3, ac.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.8);
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + 0.8);
+}
+
+function onCorrectNote() {
+  const pos = car.getLaunchPos();
+  const hb = monster.getHitbox();
+  const tx = hb.x + hb.w/2;
+  const ty = hb.y + hb.h/2;
+  car.targetTilt = -0.15;
+  launchBomb(pos.x, pos.y, tx, ty, NOTE_COLORS[targetNote]);
+}
+
+// =================== BOMB HIT ===================
+function bombHit(bomb) {
+  const hb = monster.getHitbox();
+  createExplosion(bomb.tx, bomb.ty, NOTE_COLORS[targetNote] || '#ff8800', '#ffff00');
+
+  score += 100;
+  document.getElementById('score-display').textContent = `⭐ ${score} pts`;
+
+  // Play explosion sound
+  playExplosionSound();
+
+  // Damage monster
+  monster.health--;
+  updateHealthBar();
+
+  if (monster.health <= 0) {
+    monster.dead = true;
+    setTimeout(spawnNewMonster, 2000);
+  } else {
+    // Change skin on hit
+    const newSkinIdx = (skinIndex + 1) % MONSTER_SKINS.length;
+    const newMonster = new Monster(newSkinIdx);
+    newMonster.x = monster.x;
+    newMonster.y = monster.y;
+    newMonster.health = monster.health;
+    newMonster.maxHealth = monster.maxHealth;
+    monster = newMonster;
+    skinIndex = newSkinIdx;
+  }
+
+  // New target note
+  targetNote = NOTES[Math.floor(Math.random() * NOTES.length)];
+  updateTargetNoteDisplay();
+}
+
+function updateHealthBar() {
+  const pct = (monster.health / monster.maxHealth) * 100;
+  document.getElementById('healthBarFill').style.width = pct + '%';
+}
+
+let monsterCount = 0;
+let victoryFlash = 0;
+
+function spawnNewMonster() {
+  monsterCount++;
+  skinIndex = (skinIndex + 1) % MONSTER_SKINS.length;
+  monster = new Monster(skinIndex);
+  // Get harder over time
+  monster.maxHealth = 3 + Math.floor(monsterCount / 3);
+  monster.health = monster.maxHealth;
+  monster.speed = 1.2 + monsterCount * 0.15;
+  updateHealthBar();
+  targetNote = NOTES[Math.floor(Math.random() * NOTES.length)];
+  updateTargetNoteDisplay();
+  victoryFlash = 60;
+  // Spawn celebration particles
+  for (let i = 0; i < 50; i++) {
+    createParticle(
+      Math.random() * canvas.width,
+      Math.random() * canvas.height * 0.5,
+      `hsl(${Math.random()*360},100%,60%)`,
+      2, 8
+    );
+  }
+}
+
+function updateTargetNoteDisplay() {
+  const el = document.getElementById('targetNoteName');
+  const elPt = document.getElementById('targetNotePt');
+  el.textContent = targetNote;
+  el.style.color = NOTE_COLORS[targetNote];
+  elPt.textContent = NOTE_NAMES_PT[targetNote];
+  elPt.style.color = NOTE_COLORS[targetNote];
+}
+
+function playExplosionSound() {
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  const buf = ac.createBuffer(1, ac.sampleRate * 0.8, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ac.sampleRate * 0.15));
+  }
+  const src = ac.createBufferSource();
+  const gain = ac.createGain();
+  const filter = ac.createBiquadFilter();
+  filter.type = 'lowpass'; filter.frequency.value = 300;
+  src.buffer = buf;
+  src.connect(filter); filter.connect(gain); gain.connect(ac.destination);
+  gain.gain.setValueAtTime(0.5, ac.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.8);
+  src.start(ac.currentTime);
+}
+
+// =================== KEYBOARD ===================
+document.addEventListener('keydown', e => {
+  const k = e.key.toUpperCase();
+  if (['G','D','A','E'].includes(k)) playNote(k);
+});
+
+// =================== MAIN LOOP ===================
+updateTargetNoteDisplay();
+
+function gameLoop() {
+  // Screen shake
+  let sx = 0, sy = 0;
+  if (screenShake.duration > 0) {
+    const i = screenShake.intensity || 8;
+    sx = (Math.random()-0.5) * i;
+    sy = (Math.random()-0.5) * i;
+    screenShake.duration--;
+  }
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  // Draw background
+  drawSky();
+  drawGround();
+  drawSkyline();
+  drawBuilding();
+
+  // Update & draw smoke trails
+  smokeTrails = smokeTrails.filter(s => s.life > 0);
+  smokeTrails.forEach(s => {
+    s.x += s.vx; s.y += s.vy; s.life--;
+    const alpha = (s.life / s.maxLife) * 0.5;
+    ctx.fillStyle = s.color.replace('0.6)', `${alpha})`);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, Math.max(0.1, s.size * (1 - s.life/s.maxLife * 0.5)), 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // Draw lasers
+  lasers = lasers.filter(l => l.life > 0);
+  lasers.forEach(l => {
+    l.life--;
+    const alpha = l.life / l.maxLife;
+    ctx.save();
+    ctx.strokeStyle = l.color;
+    ctx.lineWidth = 4 * alpha;
+    ctx.shadowColor = l.color; ctx.shadowBlur = 20;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2);
+    ctx.stroke();
+    ctx.restore();
+    // Laser impact particles
+    if (Math.random() < 0.3) {
+      createParticle(l.x2 + (Math.random()-0.5)*20, l.y2 + (Math.random()-0.5)*20, l.color, 1, 4);
+    }
+  });
+
+  // Update & draw explosions
+  explosions = explosions.filter(e => e.life > 0);
+  explosions.forEach(e => {
+    e.r += (e.maxR - e.r) * 0.15;
+    e.life -= 0.04;
+    const alpha = e.life;
+    ctx.save();
+    // Outer glow
+    const grad = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r);
+    grad.addColorStop(0, e.color2);
+    grad.addColorStop(0.3, e.color1);
+    grad.addColorStop(0.7, 'rgba(255,100,0,0.3)');
+    grad.addColorStop(1, 'transparent');
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(e.x, e.y, Math.max(0.1, e.r), 0, Math.PI*2); ctx.fill();
+    // Ring
+    ctx.strokeStyle = e.color2; ctx.lineWidth = 3;
+    ctx.shadowColor = e.color2; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(e.x, e.y, Math.max(0.1, e.r), 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  });
+
+  // Car
+  car.update();
+  car.draw();
+
+  // Monster
+  monster.update();
+  monster.draw();
+
+  // Target note above monster
+  const noteAboveY = monster.y - monster.height - 80;
+  ctx.save();
+  ctx.shadowColor = NOTE_COLORS[targetNote] || '#fff';
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = NOTE_COLORS[targetNote] || '#fff';
+  ctx.font = 'bold 48px Arial Black';
+  ctx.textAlign = 'center';
+  ctx.fillText('♩' + targetNote, monster.x, noteAboveY);
+  ctx.font = '18px Arial';
+  ctx.fillStyle = '#ccc';
+  ctx.fillText(NOTE_NAMES_PT[targetNote], monster.x, noteAboveY + 28);
+  ctx.restore();
+
+  // Update & draw bombs
+  bombs = bombs.filter(b => b.progress < 1);
+  bombs.forEach(b => {
+    b.progress += 0.015;
+    // Parabola path
+    const t = b.progress;
+    const x = b.x + (b.tx - b.x) * t;
+    const arc = -Math.sin(t * Math.PI) * 200;
+    const y = b.y + (b.ty - b.y) * t + arc;
+    b.trail.push({x, y});
+    if (b.trail.length > 20) b.trail.shift();
+
+    // Draw trail
+    b.trail.forEach((pt, i) => {
+      const alpha = i / b.trail.length;
+      ctx.fillStyle = `rgba(255,200,0,${alpha * 0.7})`;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, Math.max(0.1, 4 * alpha), 0, Math.PI*2); ctx.fill();
+    });
+
+    // Draw bomb
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(t * Math.PI * 4);
+    ctx.shadowColor = b.color; ctx.shadowBlur = 15;
+    ctx.fillStyle = '#333';
+    ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = b.color;
+    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ff0';
+    ctx.beginPath(); ctx.arc(0, -8, 3, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    if (b.progress >= 1) { bombHit(b); }
+  });
+
+  // Update & draw particles
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += p.gravity;
+    p.vx *= 0.98; p.vy *= 0.98;
+    p.life -= p.decay;
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color; ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.1, p.size * p.life), 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+  ctx.globalAlpha = 1;
+
+  // Victory flash
+  if (victoryFlash > 0) {
+    victoryFlash--;
+    ctx.save();
+    ctx.globalAlpha = (victoryFlash / 60) * 0.6;
+    const vGrad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, canvas.width/2);
+    vGrad.addColorStop(0, '#ffffff');
+    vGrad.addColorStop(0.5, '#ffff00');
+    vGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = vGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 64px Arial Black';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#ff0'; ctx.shadowBlur = 30;
+    ctx.fillText('💥 MONSTRO DESTRUÍDO! 💥', canvas.width/2, canvas.height/2);
+    ctx.font = 'bold 36px Arial';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`🎵 Próximo Monstro: ${MONSTER_SKINS[skinIndex].name}!`, canvas.width/2, canvas.height/2 + 60);
+    ctx.restore();
+  }
+
+  // Monster counter badge
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath(); ctx.roundRect(10, 10, 140, 35, 10); ctx.fill();
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 16px Arial Black';
+  ctx.textAlign = 'left';
+  ctx.fillText(`👾 Monstro #${monsterCount + 1}`, 18, 32);
+  ctx.fillStyle = '#aaa';
+  ctx.font = '12px Arial';
+  ctx.fillText(`Skin: ${monster.skin.name}`, 18, 45);
+  ctx.restore();
+
+  // Restore main screen-shake transform
+  ctx.restore();
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
